@@ -172,9 +172,10 @@ def init_db():
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS extrato_hashes (
-            id       SERIAL PRIMARY KEY,
-            user_id  INTEGER NOT NULL,
-            pdf_hash TEXT NOT NULL,
+            id          SERIAL PRIMARY KEY,
+            user_id     INTEGER NOT NULL,
+            pdf_hash    TEXT NOT NULL,
+            competencia TEXT,
             UNIQUE(user_id, pdf_hash),
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -188,6 +189,7 @@ def init_db():
         ('client_options',       'codigo',        'TEXT'),
         ('reconciliations',      'competencia',   'TEXT'),
         ('matched_transactions', 'competencia',   'TEXT'),
+        ('extrato_hashes',       'competencia',   'TEXT'),
     ]
     for tbl, col, typ in migrations:
         conn.execute(f'ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {typ}')
@@ -269,6 +271,13 @@ def _fmt_date(value: str) -> str:
 
 app.jinja_env.filters['competencia'] = _fmt_competencia
 app.jinja_env.filters['ddmmyyyy']    = _fmt_date
+
+
+def _detectar_competencia(transacoes: list) -> str | None:
+    """Detecta a competência dominante a partir das datas das transações."""
+    from collections import Counter
+    comps = [t['data'][:7] for t in transacoes if t.get('data') and len(t.get('data', '')) >= 7]
+    return Counter(comps).most_common(1)[0][0] if comps else None
 
 
 def _gerar_csv1_bytes(client_id: int, competencia: str, conn) -> bytes:
@@ -473,8 +482,7 @@ def client_lancamento_manual():
 @app.route('/client/extrato/processar', methods=['POST'])
 @login_required
 def client_extrato_processar():
-    uid         = session['user_id']
-    competencia = request.form.get('competencia', '').strip()
+    uid = session['user_id']
 
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'})
@@ -487,19 +495,11 @@ def client_extrato_processar():
 
     conn = get_db()
 
-    # Mês fechado?
-    if competencia:
-        ms = conn.execute(
-            "SELECT status FROM month_status WHERE user_id=? AND competencia=?", (uid, competencia)
-        ).fetchone()
-        if ms and ms['status'] == 'fechado':
-            conn.close()
-            return jsonify({'success': False, 'error': 'Este mês está fechado. Solicite ao administrador para reabrir.'})
-
-    # Extrato duplicado?
-    if conn.execute('SELECT 1 FROM extrato_hashes WHERE user_id=? AND pdf_hash=?', (uid, pdf_hash)).fetchone():
+    # Extrato duplicado? Retorna a competência armazenada para o botão "Reenviar"
+    dup = conn.execute('SELECT competencia FROM extrato_hashes WHERE user_id=? AND pdf_hash=?', (uid, pdf_hash)).fetchone()
+    if dup:
         conn.close()
-        return jsonify({'success': False, 'error': 'Este extrato já foi processado anteriormente. Cada PDF só pode ser importado uma vez.'})
+        return jsonify({'success': False, 'error': 'duplicado', 'competencia': dup['competencia']})
 
     try:
         resp = requests.post(
@@ -515,23 +515,33 @@ def client_extrato_processar():
         conn.close()
         return jsonify({'success': False, 'error': resp.json().get('error', 'Erro ao processar extrato')})
 
-    # Salva hash para impedir reuso
-    conn.execute('INSERT INTO extrato_hashes (user_id, pdf_hash) VALUES (?,?) ON CONFLICT DO NOTHING', (uid, pdf_hash))
-    conn.commit()
-
     data      = resp.json()
     all_trans = data.get('transacoes', [])
     debits    = [t for t in all_trans if t.get('tipo') == 'D']
+
+    # Detecta competência automaticamente pelas datas das transações
+    competencia = _detectar_competencia(all_trans)
+
+    # Mês fechado?
+    if competencia:
+        ms = conn.execute(
+            "SELECT status FROM month_status WHERE user_id=? AND competencia=?", (uid, competencia)
+        ).fetchone()
+        if ms and ms['status'] == 'fechado':
+            conn.close()
+            return jsonify({'success': False, 'error': f'O mês {_fmt_competencia(competencia)} está fechado. Solicite ao administrador para reabrir.'})
+
+    conn.execute('INSERT INTO extrato_hashes (user_id, pdf_hash, competencia) VALUES (?,?,?) ON CONFLICT DO NOTHING', (uid, pdf_hash, competencia))
+    conn.commit()
     conn.close()
 
-    # Todos os débitos são apresentados ao cliente para classificação.
-    # A filtragem de conciliados ocorre apenas na geração do TXT final.
     return jsonify({
-        'success':    True,
-        'banco':      data.get('banco', ''),
-        'total':      len(all_trans),
-        'total_d':    len(debits),
-        'transacoes': debits,
+        'success':     True,
+        'banco':       data.get('banco', ''),
+        'total':       len(all_trans),
+        'total_d':     len(debits),
+        'competencia': competencia,
+        'transacoes':  debits,
     })
 
 
@@ -596,6 +606,21 @@ def client_fechar_mes():
         "ON CONFLICT(user_id, competencia) DO UPDATE SET status='fechado', closed_at=to_char(now(),'YYYY-MM-DD HH24:MI:SS')",
         (uid, competencia)
     )
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/client/extrato/limpar-hash', methods=['POST'])
+@login_required
+def client_limpar_hash():
+    uid         = session['user_id']
+    competencia = request.form.get('competencia', '').strip()
+    conn        = get_db()
+    if competencia:
+        conn.execute('DELETE FROM extrato_hashes WHERE user_id=? AND competencia=?', (uid, competencia))
+    else:
+        conn.execute('DELETE FROM extrato_hashes WHERE user_id=? AND id=(SELECT MAX(id) FROM extrato_hashes WHERE user_id=?)', (uid, uid))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
