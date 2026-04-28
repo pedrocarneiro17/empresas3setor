@@ -274,9 +274,18 @@ app.jinja_env.filters['ddmmyyyy']    = _fmt_date
 
 
 def _detectar_competencia(transacoes: list) -> str | None:
-    """Detecta a competência dominante a partir das datas das transações."""
+    """Detecta a competência dominante a partir das datas das transações.
+    Suporta YYYY-MM-DD e DD/MM/YYYY."""
     from collections import Counter
-    comps = [t['data'][:7] for t in transacoes if t.get('data') and len(t.get('data', '')) >= 7]
+    comps = []
+    for t in transacoes:
+        data = t.get('data', '')
+        if not data:
+            continue
+        if len(data) >= 7 and data[4:5] == '-':        # YYYY-MM-DD
+            comps.append(data[:7])
+        elif len(data) == 10 and data[2] == '/' and data[5] == '/':  # DD/MM/YYYY
+            comps.append(f"{data[6:]}-{data[3:5]}")
     return Counter(comps).most_common(1)[0][0] if comps else None
 
 
