@@ -36,6 +36,11 @@ app.jinja_env.filters['fromjson'] = json.loads
 class _DBConn:
     """Thin wrapper around psycopg2 connection that mimics sqlite3's API."""
     def __init__(self):
+        if not DATABASE_URL:
+            raise RuntimeError(
+                'DATABASE_URL não configurada. '
+                'Adicione um banco PostgreSQL ao projeto no Railway e vincule ao serviço.'
+            )
         self._conn = psycopg2.connect(DATABASE_URL)
 
     def execute(self, sql, params=()):
