@@ -271,28 +271,25 @@ function renderDashboard() {
         }
     });
 
-    // ── Gráfico 4: Evolução do saldo linha ────────────────────
-    const saldoAcum = [];
-    let acum = 0;
-    allComps.forEach(c => {
-        acum += (credByComp[c]||0) - (debByComp[c]||0);
-        saldoAcum.push(parseFloat(acum.toFixed(2)));
-    });
+    // ── Gráfico 4: Resultado líquido por mês (crédito - débito) ──
+    const saldoMensal = allComps.map(c =>
+        parseFloat(((credByComp[c]||0) - (debByComp[c]||0)).toFixed(2))
+    );
+    const saldoColors = saldoMensal.map(v => v >= 0 ? 'rgba(81,207,102,0.8)' : 'rgba(255,107,107,0.8)');
+    const saldoBorders = saldoMensal.map(v => v >= 0 ? '#2f9e44' : '#c92a2a');
 
     destroyChart(chartSaldo);
     chartSaldo = new Chart(document.getElementById('chart-saldo'), {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: allComps.map(fmtComp),
             datasets: [{
-                label: 'Saldo acumulado',
-                data: saldoAcum,
-                borderColor: '#3b5bdb',
-                backgroundColor: 'rgba(59,91,219,0.08)',
-                fill: true,
-                tension: 0.3,
-                pointBackgroundColor: '#3b5bdb',
-                pointRadius: 4
+                label: 'Resultado do mês',
+                data: saldoMensal,
+                backgroundColor: saldoColors,
+                borderColor: saldoBorders,
+                borderWidth: 1,
+                borderRadius: 4
             }]
         },
         options: {
