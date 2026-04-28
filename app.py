@@ -694,9 +694,17 @@ def admin_cliente(client_id):
         flash('Cliente não encontrado.', 'danger')
         return redirect(url_for('admin_index'))
 
+    comp_filtro = request.args.get('comp', '').strip()
+
     banks      = conn.execute("SELECT * FROM client_options WHERE user_id=? AND type='bank' ORDER BY value", (client_id,)).fetchall()
     categories = conn.execute("SELECT * FROM client_options WHERE user_id=? AND type='category' ORDER BY value", (client_id,)).fetchall()
-    reconciliations = conn.execute('SELECT * FROM reconciliations WHERE user_id=? ORDER BY date DESC', (client_id,)).fetchall()
+    if comp_filtro:
+        reconciliations = conn.execute(
+            'SELECT * FROM reconciliations WHERE user_id=? AND competencia=? ORDER BY date DESC',
+            (client_id, comp_filtro)
+        ).fetchall()
+    else:
+        reconciliations = conn.execute('SELECT * FROM reconciliations WHERE user_id=? ORDER BY date DESC', (client_id,)).fetchall()
 
     comp_set = {r['competencia'] for r in conn.execute(
         "SELECT DISTINCT competencia FROM transactions WHERE user_id=? AND competencia IS NOT NULL", (client_id,)
@@ -726,7 +734,8 @@ def admin_cliente(client_id):
     conn.close()
     return render_template('admin/cliente.html',
                            client=client, banks=banks, categories=categories,
-                           reconciliations=reconciliations, meses=meses)
+                           reconciliations=reconciliations, meses=meses,
+                           comp_filtro=comp_filtro)
 
 
 @app.route('/admin/cliente/<int:client_id>/reabrir-mes', methods=['POST'])
@@ -875,31 +884,52 @@ def admin_download_extrato(client_id, rec_id):
 def admin_download_conciliado(client_id):
     """Débitos que NÃO bateram na reconciliação — formato: Data;Descrição;Competência;N°Doc;Valor;Cód.Cat;Cód.Banco"""
     conn = get_db()
+    comp = request.args.get('comp', '').strip()
 
-    # Apenas transações D que não têm correspondência na tabela de reconciliações
-    rows = conn.execute(
-        """
-        SELECT t.competencia, t.date, t.description, t.value, t.bank_code, t.category_code
-        FROM transactions t
-        WHERE t.user_id = ? AND t.type = 'D'
-          AND NOT EXISTS (
-              SELECT 1 FROM matched_transactions mt
-              WHERE mt.user_id = t.user_id
-                AND mt.date = t.date
-                AND ABS(
-                    CAST(REPLACE(REPLACE(t.value, '.', ''), ',', '.') AS REAL)
-                    - mt.value
-                ) < 0.01
-          )
-        ORDER BY t.competencia, t.date, t.id
-        """,
-        (client_id,)
-    ).fetchall()
+    if comp:
+        rows = conn.execute(
+            """
+            SELECT t.competencia, t.date, t.description, t.value, t.bank_code, t.category_code
+            FROM transactions t
+            WHERE t.user_id = ? AND t.type = 'D' AND t.competencia = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM matched_transactions mt
+                  WHERE mt.user_id = t.user_id
+                    AND mt.date = t.date
+                    AND ABS(
+                        CAST(REPLACE(REPLACE(t.value, '.', ''), ',', '.') AS REAL)
+                        - mt.value
+                    ) < 0.01
+              )
+            ORDER BY t.date, t.id
+            """,
+            (client_id, comp)
+        ).fetchall()
+        download_name = f'conciliado_cliente{client_id}_comp{comp}.txt'
+    else:
+        rows = conn.execute(
+            """
+            SELECT t.competencia, t.date, t.description, t.value, t.bank_code, t.category_code
+            FROM transactions t
+            WHERE t.user_id = ? AND t.type = 'D'
+              AND NOT EXISTS (
+                  SELECT 1 FROM matched_transactions mt
+                  WHERE mt.user_id = t.user_id
+                    AND mt.date = t.date
+                    AND ABS(
+                        CAST(REPLACE(REPLACE(t.value, '.', ''), ',', '.') AS REAL)
+                        - mt.value
+                    ) < 0.01
+              )
+            ORDER BY t.competencia, t.date, t.id
+            """,
+            (client_id,)
+        ).fetchall()
+        download_name = f'conciliado_cliente{client_id}.txt'
 
     conn.close()
 
     buf = io.StringIO()
-
     for r in rows:
         buf.write(
             f"{r['date']};"
@@ -915,7 +945,7 @@ def admin_download_conciliado(client_id):
         io.BytesIO(buf.getvalue().encode('utf-8-sig')),
         mimetype='text/plain',
         as_attachment=True,
-        download_name=f'conciliado_cliente{client_id}.txt'
+        download_name=download_name
     )
 
 
@@ -924,11 +954,23 @@ def admin_download_conciliado(client_id):
 def admin_download_transacoes(client_id):
     """CSV com todas as transações do cliente (manual + extrato) — 4 colunas: Data;Descrição;Valor;Tipo"""
     conn = get_db()
-    rows = conn.execute(
-        "SELECT date, description, value, type FROM transactions "
-        "WHERE user_id=? ORDER BY competencia, date, id",
-        (client_id,)
-    ).fetchall()
+    comp = request.args.get('comp', '').strip()
+
+    if comp:
+        rows = conn.execute(
+            "SELECT date, description, value, type FROM transactions "
+            "WHERE user_id=? AND competencia=? ORDER BY date, id",
+            (client_id, comp)
+        ).fetchall()
+        download_name = f'transacoes_cliente{client_id}_comp{comp}.csv'
+    else:
+        rows = conn.execute(
+            "SELECT date, description, value, type FROM transactions "
+            "WHERE user_id=? ORDER BY competencia, date, id",
+            (client_id,)
+        ).fetchall()
+        download_name = f'transacoes_cliente{client_id}.csv'
+
     conn.close()
 
     buf = io.StringIO()
@@ -939,7 +981,7 @@ def admin_download_transacoes(client_id):
         io.BytesIO(buf.getvalue().encode('utf-8-sig')),
         mimetype='text/csv',
         as_attachment=True,
-        download_name=f'transacoes_cliente{client_id}.csv'
+        download_name=download_name
     )
 
 

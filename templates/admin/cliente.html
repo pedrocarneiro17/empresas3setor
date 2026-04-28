@@ -4,7 +4,7 @@
 {% block content %}
 <!-- Header -->
 <div class="flex items-center gap-3 mb-5">
-    <a href="/admin" class="text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg px-3 py-1.5 text-sm transition">
+    <a href="/admin{% if comp_filtro %}?comp={{ comp_filtro }}{% endif %}" class="text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg px-3 py-1.5 text-sm transition">
         <i class="fas fa-arrow-left"></i>
     </a>
     <div class="w-10 h-10 rounded-full bg-[#3b5bdb] text-white flex items-center justify-center font-bold text-lg shrink-0">
@@ -14,6 +14,11 @@
         <h5 class="font-bold text-gray-800 leading-tight">{{ client['name'] }}</h5>
         <span class="text-xs text-gray-500">{{ client['email'] }}</span>
     </div>
+    {% if comp_filtro %}
+    <span class="ml-auto text-xs font-semibold bg-[#3b5bdb]/10 text-[#3b5bdb] px-3 py-1 rounded-full">
+        <i class="fas fa-calendar-alt mr-1"></i>{{ comp_filtro | competencia }}
+    </span>
+    {% endif %}
 </div>
 
 <!-- Tabs nav -->
@@ -150,11 +155,11 @@
                 <p class="text-xs text-green-600 mt-0.5">Conciliado (TXT) · Extrato completo (CSV)</p>
             </div>
             <div class="flex gap-2 flex-wrap">
-                <a href="/admin/cliente/{{ client['id'] }}/download/transacoes"
+                <a href="/admin/cliente/{{ client['id'] }}/download/transacoes{% if comp_filtro %}?comp={{ comp_filtro }}{% endif %}"
                    class="text-sm font-semibold px-4 py-1.5 rounded-lg border border-[#3b5bdb] text-[#3b5bdb] hover:bg-[#3b5bdb] hover:text-white transition flex items-center gap-2">
                     <i class="fas fa-download"></i> Extrato CSV
                 </a>
-                <a href="/admin/cliente/{{ client['id'] }}/download/conciliado"
+                <a href="/admin/cliente/{{ client['id'] }}/download/conciliado{% if comp_filtro %}?comp={{ comp_filtro }}{% endif %}"
                    class="text-sm font-semibold px-4 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center gap-2">
                     <i class="fas fa-download"></i> Conciliado TXT
                 </a>

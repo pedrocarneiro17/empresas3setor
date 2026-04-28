@@ -68,7 +68,7 @@
             {% endif %}
         </div>
         <div class="px-4 pb-4">
-            <a href="/admin/cliente/{{ item.user.id }}"
+            <a href="/admin/cliente/{{ item.user.id }}{% if item.comp %}?comp={{ item.comp }}{% endif %}"
                class="block w-full text-center text-sm font-semibold text-[#3b5bdb] border border-[#3b5bdb] rounded-lg py-1.5 hover:bg-[#3b5bdb] hover:text-white transition">
                 <i class="fas fa-eye mr-1"></i> Ver Detalhes
             </a>
