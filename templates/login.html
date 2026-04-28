@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-start pt-24">
+    <div class="w-full max-w-sm">
+        <div class="bg-white rounded-2xl shadow-lg p-8">
+            <div class="text-center mb-6">
+                <i class="fas fa-calculator text-5xl text-[#3b5bdb]"></i>
+                <h4 class="text-xl font-bold mt-3 mb-1">Lançamentos Mensais</h4>
+                <p class="text-gray-500 text-sm">Sistema de Lançamentos Contábeis</p>
+            </div>
+
+            <form method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Email</label>
+                    <div class="flex rounded-lg border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-[#3b5bdb] focus-within:border-[#3b5bdb]">
+                        <span class="bg-gray-50 px-3 flex items-center border-r border-gray-300">
+                            <i class="fas fa-envelope text-gray-400"></i>
+                        </span>
+                        <input type="email" name="email" required placeholder="seu@email.com"
+                               class="flex-1 px-3 py-2 text-sm outline-none bg-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Senha</label>
+                    <div class="flex rounded-lg border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-[#3b5bdb] focus-within:border-[#3b5bdb]">
+                        <span class="bg-gray-50 px-3 flex items-center border-r border-gray-300">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </span>
+                        <input type="password" name="password" required
+                               class="flex-1 px-3 py-2 text-sm outline-none bg-white">
+                    </div>
+                </div>
+                <button type="submit"
+                        class="w-full bg-[#3b5bdb] hover:bg-[#3451c7] text-white font-semibold py-2.5 rounded-lg transition text-sm">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                </button>
+            </form>
+
+            <hr class="my-4 border-gray-200">
+            <div class="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+                <p class="font-semibold text-gray-600">Credenciais de demonstração:</p>
+                <p><i class="fas fa-shield-alt text-yellow-500 mr-1"></i>Admin: <code class="bg-gray-200 px-1 rounded">admin@contajur.com</code> / <code class="bg-gray-200 px-1 rounded">admin123</code></p>
+                <p><i class="fas fa-user text-[#3b5bdb] mr-1"></i>Cliente: <code class="bg-gray-200 px-1 rounded">joao@empresa.com</code> / <code class="bg-gray-200 px-1 rounded">cliente123</code></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

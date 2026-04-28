@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lançamentos Mensais{% if self.title() %} — {% block title %}{% endblock %}{% endif %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { brand: '#3b5bdb' }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen" style="font-family:'Segoe UI',sans-serif;">
+
+<!-- Navbar -->
+<nav class="bg-[#3b5bdb] px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+    <a href="/" class="text-white font-bold text-lg tracking-wide flex items-center gap-2">
+        <i class="fas fa-calculator"></i> Lançamentos Mensais
+    </a>
+    {% if session.user_id %}
+    <div class="flex items-center gap-4">
+        <span class="text-white text-sm flex items-center gap-1">
+            <i class="fas fa-user-circle"></i> {{ session.user_name }}
+            {% if session.role == 'admin' %}
+            <span class="ml-1 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full">Admin</span>
+            {% endif %}
+        </span>
+        <a href="/logout" class="border border-white/50 text-white text-sm px-3 py-1 rounded hover:bg-white/10 transition">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
+    {% endif %}
+</nav>
+
+<div class="flex">
+    {% if session.user_id %}
+    <!-- Sidebar -->
+    <aside class="hidden md:flex flex-col w-52 bg-white border-r border-gray-200 min-h-[calc(100vh-52px)] pt-4 shrink-0">
+        {% if session.role == 'admin' %}
+        <a href="/admin"
+           class="sidebar-link flex items-center gap-2 mx-2 px-3 py-2 rounded text-sm font-medium transition
+                  {% if request.path == '/admin' or request.path.startswith('/admin/cliente') %}bg-[#3b5bdb] text-white{% else %}text-gray-600 hover:bg-indigo-50 hover:text-[#3b5bdb]{% endif %}">
+            <i class="fas fa-users w-4 text-center"></i> Clientes
+        </a>
+        {% else %}
+        <a href="/client/dashboard"
+           class="flex items-center gap-2 mx-2 px-3 py-2 rounded text-sm font-medium transition
+                  {% if request.path == '/client/dashboard' %}bg-[#3b5bdb] text-white{% else %}text-gray-600 hover:bg-indigo-50 hover:text-[#3b5bdb]{% endif %}">
+            <i class="fas fa-chart-bar w-4 text-center"></i> Dashboard
+        </a>
+        <a href="/client"
+           class="flex items-center gap-2 mx-2 px-3 py-2 rounded text-sm font-medium transition
+                  {% if request.path == '/client' %}bg-[#3b5bdb] text-white{% else %}text-gray-600 hover:bg-indigo-50 hover:text-[#3b5bdb]{% endif %}">
+            <i class="fas fa-receipt w-4 text-center"></i> Lançamentos
+        </a>
+        {% endif %}
+    </aside>
+
+    <main class="flex-1 p-6 min-w-0">
+    {% else %}
+    <main class="w-full">
+    {% endif %}
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+            {% set color = 'green' if cat == 'success' else 'red' if cat == 'danger' else 'yellow' %}
+            <div class="mb-4 flex items-start gap-3 p-4 rounded-lg border
+                        {% if cat == 'success' %}bg-green-50 border-green-200 text-green-800
+                        {% elif cat == 'danger' %}bg-red-50 border-red-200 text-red-800
+                        {% else %}bg-yellow-50 border-yellow-200 text-yellow-800{% endif %}">
+                <span class="flex-1 text-sm">{{ msg }}</span>
+                <button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 text-lg leading-none">&times;</button>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

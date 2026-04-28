@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+    <h4 class="text-lg font-bold flex items-center gap-2">
+        <i class="fas fa-chart-bar text-[#3b5bdb]"></i> Dashboard
+    </h4>
+</div>
+
+<!-- Filtro de competência + status -->
+<div class="flex items-center gap-3 mb-6 flex-wrap">
+    <label class="text-sm font-semibold text-gray-600">Competência</label>
+    <input type="month" id="dash-comp" onchange="renderDashboard()"
+           class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+    <div id="dash-status-badge" class="ml-auto"></div>
+    <button id="btn-fechar-mes" onclick="confirmarFechamento()"
+            class="hidden bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition items-center gap-2">
+        <i class="fas fa-lock"></i> Fechar Mês
+    </button>
+</div>
+
+<!-- Cards resumo -->
+<div id="dash-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="sm:col-span-3 text-center text-gray-400 py-8">Selecione uma competência</div>
+</div>
+
+<!-- Gráficos -->
+<div id="dash-charts" class="hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+
+        <!-- Despesas por categoria (doughnut) -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h6 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-tags text-[#3b5bdb]"></i> Despesas por Categoria
+            </h6>
+            <div class="flex items-center justify-center" style="height:260px;">
+                <canvas id="chart-categoria"></canvas>
+            </div>
+        </div>
+
+        <!-- Crédito vs Débito por mês (barras) -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h6 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-chart-bar text-[#3b5bdb]"></i> Histórico Mensal
+            </h6>
+            <div style="height:260px;">
+                <canvas id="chart-mensal"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+
+        <!-- Top categorias (barras horizontais) -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h6 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-sort-amount-down text-red-400"></i> Top Despesas por Categoria
+            </h6>
+            <div style="height:260px;">
+                <canvas id="chart-top-cat"></canvas>
+            </div>
+        </div>
+
+        <!-- Evolução do saldo (linha) -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h6 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-chart-line text-green-500"></i> Evolução do Saldo
+            </h6>
+            <div style="height:260px;">
+                <canvas id="chart-saldo"></canvas>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Tabela detalhada de categorias -->
+<div id="dash-breakdown"></div>
+
+<!-- Modal Fechar Mês -->
+<div id="modal-fechar-mes" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4">
+        <div class="bg-red-600 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
+            <h5 class="font-bold flex items-center gap-2"><i class="fas fa-lock"></i> Fechar Mês</h5>
+            <button onclick="document.getElementById('modal-fechar-mes').classList.add('hidden')"
+                    class="opacity-70 hover:opacity-100 text-xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 text-center">
+            <p class="mb-1 text-sm">Deseja fechar o mês <strong id="fechar-mes-nome"></strong>?</p>
+            <p class="text-xs text-gray-500">Após fechar, novos lançamentos não serão permitidos. Somente o administrador poderá reabrir.</p>
+        </div>
+        <div class="px-5 pb-5 flex justify-center gap-3">
+            <button onclick="document.getElementById('modal-fechar-mes').classList.add('hidden')"
+                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition">
+                Cancelar
+            </button>
+            <button onclick="fecharMes()"
+                    class="px-4 py-2 text-sm rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition flex items-center gap-2">
+                <i class="fas fa-lock"></i> Confirmar Fechamento
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const TRANS_ALL    = {{ transactions_json | tojson }};
+const MONTH_STATUS = {{ month_status_map | tojson }};
+
+let chartCategoria = null;
+let chartMensal    = null;
+let chartTopCat    = null;
+let chartSaldo     = null;
+
+const PALETTE = [
+    '#3b5bdb','#e64980','#f59f00','#0ca678','#ae3ec9',
+    '#1c7ed6','#f76707','#2f9e44','#c92a2a','#5c7cfa',
+    '#74c0fc','#ffa94d','#a9e34b','#da77f2','#63e6be',
+];
+
+function parseBRVal(s) {
+    if (!s) return 0;
+    return parseFloat(String(s).replace(/\./g,'').replace(',','.')) || 0;
+}
+function fmtComp(yyyymm) {
+    if (!yyyymm || yyyymm.length !== 7) return yyyymm;
+    const [y,m] = yyyymm.split('-');
+    return `${m}/${y}`;
+}
+function fmt(v) {
+    return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function destroyChart(c) { if (c) c.destroy(); }
+
+function renderDashboard() {
+    const comp   = document.getElementById('dash-comp')?.value;
+    const cards  = document.getElementById('dash-cards');
+    const brk    = document.getElementById('dash-breakdown');
+    const badge  = document.getElementById('dash-status-badge');
+    const btnF   = document.getElementById('btn-fechar-mes');
+    const charts = document.getElementById('dash-charts');
+
+    if (!comp) {
+        cards.innerHTML = '<div class="sm:col-span-3 text-center text-gray-400 py-8">Sem dados</div>';
+        charts.classList.add('hidden');
+        return;
+    }
+
+    const txns   = TRANS_ALL.filter(t => t.competencia === comp);
+    const status = MONTH_STATUS[comp] || 'aberto';
+
+    // Status badge
+    badge.innerHTML = status === 'fechado'
+        ? '<span class="bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fas fa-lock mr-1"></i>Mês Fechado</span>'
+        : '<span class="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full"><i class="fas fa-lock-open mr-1"></i>Mês Aberto</span>';
+    btnF.classList.toggle('hidden', status === 'fechado');
+    btnF.classList.toggle('flex',   status !== 'fechado');
+
+    // Totais
+    let credito = 0, debito = 0;
+    const catMap = {};
+    txns.forEach(t => {
+        const v = parseBRVal(t.value);
+        if (t.type === 'C') {
+            credito += v;
+        } else {
+            debito += v;
+            const k = t.category || '(sem categoria)';
+            catMap[k] = (catMap[k] || 0) + v;
+        }
+    });
+    const saldo = credito - debito;
+
+    // Cards
+    cards.innerHTML = `
+        <div class="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
+            <div class="text-2xl font-bold text-green-600">${fmt(credito)}</div>
+            <div class="text-xs text-gray-500 mt-1 font-medium">Total Crédito</div>
+        </div>
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-5 text-center">
+            <div class="text-2xl font-bold text-red-500">${fmt(debito)}</div>
+            <div class="text-xs text-gray-500 mt-1 font-medium">Total Débito</div>
+        </div>
+        <div class="${saldo>=0?'bg-blue-50 border-blue-200':'bg-yellow-50 border-yellow-200'} border rounded-2xl p-5 text-center">
+            <div class="text-2xl font-bold ${saldo>=0?'text-[#3b5bdb]':'text-yellow-600'}">${fmt(saldo)}</div>
+            <div class="text-xs text-gray-500 mt-1 font-medium">Saldo</div>
+        </div>`;
+
+    if (txns.length === 0) { charts.classList.add('hidden'); brk.innerHTML = ''; return; }
+    charts.classList.remove('hidden');
+
+    // ── Gráfico 1: Doughnut despesas por categoria ────────────
+    const catEntries = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+    const catLabels  = catEntries.map(([k]) => k);
+    const catVals    = catEntries.map(([,v]) => parseFloat(v.toFixed(2)));
+
+    destroyChart(chartCategoria);
+    chartCategoria = new Chart(document.getElementById('chart-categoria'), {
+        type: 'doughnut',
+        data: {
+            labels: catLabels,
+            datasets: [{ data: catVals, backgroundColor: PALETTE, borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)}` } }
+            },
+            cutout: '60%'
+        }
+    });
+
+    // ── Gráfico 2: Barras crédito x débito por mês ────────────
+    const allComps = [...new Set(TRANS_ALL.map(t => t.competencia).filter(Boolean))].sort();
+    const credByComp  = {}, debByComp = {};
+    TRANS_ALL.forEach(t => {
+        const v = parseBRVal(t.value);
+        if (!credByComp[t.competencia]) { credByComp[t.competencia]=0; debByComp[t.competencia]=0; }
+        if (t.type === 'C') credByComp[t.competencia] += v;
+        else debByComp[t.competencia] += v;
+    });
+
+    destroyChart(chartMensal);
+    chartMensal = new Chart(document.getElementById('chart-mensal'), {
+        type: 'bar',
+        data: {
+            labels: allComps.map(fmtComp),
+            datasets: [
+                { label: 'Crédito',  data: allComps.map(c => parseFloat((credByComp[c]||0).toFixed(2))), backgroundColor: '#51cf66', borderRadius: 4 },
+                { label: 'Débito',   data: allComps.map(c => parseFloat((debByComp[c]||0).toFixed(2))),  backgroundColor: '#ff6b6b', borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { font: { size: 11 } } },
+                       tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: { ticks: { font: { size: 11 }, callback: v => 'R$ ' + v.toLocaleString('pt-BR') }, grid: { color: '#f0f0f0' } }
+            }
+        }
+    });
+
+    // ── Gráfico 3: Top categorias barra horizontal ────────────
+    destroyChart(chartTopCat);
+    chartTopCat = new Chart(document.getElementById('chart-top-cat'), {
+        type: 'bar',
+        data: {
+            labels: catLabels.slice(0,8),
+            datasets: [{
+                label: 'Débito',
+                data: catVals.slice(0,8),
+                backgroundColor: PALETTE.slice(0,8),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false },
+                       tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.x)}` } } },
+            scales: {
+                x: { ticks: { font: { size: 11 }, callback: v => 'R$ ' + v.toLocaleString('pt-BR') }, grid: { color: '#f0f0f0' } },
+                y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+            }
+        }
+    });
+
+    // ── Gráfico 4: Evolução do saldo linha ────────────────────
+    const saldoAcum = [];
+    let acum = 0;
+    allComps.forEach(c => {
+        acum += (credByComp[c]||0) - (debByComp[c]||0);
+        saldoAcum.push(parseFloat(acum.toFixed(2)));
+    });
+
+    destroyChart(chartSaldo);
+    chartSaldo = new Chart(document.getElementById('chart-saldo'), {
+        type: 'line',
+        data: {
+            labels: allComps.map(fmtComp),
+            datasets: [{
+                label: 'Saldo acumulado',
+                data: saldoAcum,
+                borderColor: '#3b5bdb',
+                backgroundColor: 'rgba(59,91,219,0.08)',
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: '#3b5bdb',
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false },
+                       tooltip: { callbacks: { label: ctx => ` Saldo: ${fmt(ctx.parsed.y)}` } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: { ticks: { font: { size: 11 }, callback: v => 'R$ ' + v.toLocaleString('pt-BR') }, grid: { color: '#f0f0f0' } }
+            }
+        }
+    });
+
+    // ── Tabela detalhada ──────────────────────────────────────
+    const rows = catEntries.map(([cat,val]) => {
+        const pct = debito > 0 ? ((val/debito)*100).toFixed(1) : '0.0';
+        return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-2 text-sm">${cat}</td>
+            <td class="px-4 py-2 text-sm text-right font-semibold text-red-500">${fmt(val)}</td>
+            <td class="px-4 py-2 text-sm text-right text-gray-400">${pct}%</td>
+            <td class="px-4 py-3 w-40">
+                <div class="bg-gray-200 rounded-full h-1.5">
+                    <div class="bg-red-400 h-1.5 rounded-full" style="width:${pct}%"></div>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    brk.innerHTML = rows ? `
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <i class="fas fa-list text-gray-400"></i> Detalhamento de Despesas
+            </div>
+            <table class="w-full">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                    <tr>
+                        <th class="px-4 py-2 text-left">Categoria</th>
+                        <th class="px-4 py-2 text-right">Valor</th>
+                        <th class="px-4 py-2 text-right">%</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>` : '';
+}
+
+function confirmarFechamento() {
+    const comp = document.getElementById('dash-comp')?.value;
+    if (!comp) return;
+    document.getElementById('fechar-mes-nome').textContent = fmtComp(comp);
+    document.getElementById('modal-fechar-mes').classList.remove('hidden');
+}
+
+async function fecharMes() {
+    const comp = document.getElementById('dash-comp')?.value;
+    const fd = new FormData(); fd.append('competencia', comp);
+    const res  = await fetch('/client/fechar-mes', { method: 'POST', body: fd });
+    const json = await res.json();
+    document.getElementById('modal-fechar-mes').classList.add('hidden');
+    if (json.success) setTimeout(() => location.reload(), 1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const ym = new Date().toISOString().slice(0, 7);
+    document.getElementById('dash-comp').value = ym;
+    renderDashboard();
+});
+</script>
+{% endblock %}

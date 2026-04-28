@@ -1,0 +1,756 @@
+{% extends 'base.html' %}
+{% block title %}Lançamentos{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h4 class="text-lg font-bold flex items-center gap-2">
+        <i class="fas fa-receipt text-[#3b5bdb]"></i> Meus Lançamentos
+    </h4>
+</div>
+
+<!-- Tabs nav -->
+<div class="border-b border-gray-200 mb-0">
+    <ul class="flex gap-1 -mb-px">
+        <li>
+            <button onclick="switchTab('manual')" id="tab-btn-manual"
+                    class="tab-btn px-5 py-2.5 text-sm font-semibold border-b-2 transition active-tab">
+                <i class="fas fa-pen mr-2"></i>Lançamento Manual
+            </button>
+        </li>
+        <li>
+            <button onclick="switchTab('extrato')" id="tab-btn-extrato"
+                    class="tab-btn px-5 py-2.5 text-sm font-semibold border-b-2 transition inactive-tab">
+                <i class="fas fa-file-pdf mr-2"></i>Por Extrato (PDF)
+            </button>
+        </li>
+    </ul>
+</div>
+
+<div class="bg-white border border-t-0 border-gray-200 rounded-b-2xl shadow-sm p-5 mb-6">
+
+    <!-- TAB MANUAL -->
+    <div id="tab-manual">
+        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-4">Novo Lançamento</p>
+        <form id="form-manual">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Competência <span class="text-red-500">*</span></label>
+                    <input type="month" name="competencia" id="competencia-manual" required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Data <span class="text-red-500">*</span></label>
+                    <input type="date" name="date" id="data-manual" required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold mb-1">Descrição <span class="text-red-500">*</span></label>
+                    <input type="text" name="description" required placeholder="Ex: Pagamento de aluguel"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Valor (R$) <span class="text-red-500">*</span></label>
+                    <input type="text" name="value" id="valor-manual" required placeholder="0,00" inputmode="numeric"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Tipo <span class="text-red-500">*</span></label>
+                    <select name="type" required
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                        <option value="">Selecione</option>
+                        <option value="D">D — Débito</option>
+                        <option value="C">C — Crédito</option>
+                    </select>
+                </div>
+                <div class="col-span-2 md:col-span-2">
+                    <label class="block text-xs font-semibold mb-1">Banco</label>
+                    <select name="bank" id="sel-bank-manual"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                        <option value="">Selecione o banco</option>
+                        {% for b in banks %}
+                        <option value="{{ b['value'] }}" data-codigo="{{ b['codigo'] or '' }}">{{ b['value'] }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="bank_code" id="bank_code_manual">
+                </div>
+                <div class="col-span-2 md:col-span-2">
+                    <label class="block text-xs font-semibold mb-1">Categoria</label>
+                    <select name="category" id="sel-cat-manual"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                        <option value="">Selecione a categoria</option>
+                        {% for c in categories %}
+                        <option value="{{ c['value'] }}" data-codigo="{{ c['codigo'] or '' }}">{{ c['value'] }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="category_code" id="category_code_manual">
+                </div>
+                <div class="col-span-2 flex items-end">
+                    <button type="submit"
+                            class="w-full bg-[#3b5bdb] hover:bg-[#3451c7] text-white font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Salvar Lançamento
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- TAB EXTRATO -->
+    <div id="tab-extrato" class="hidden">
+        <div class="max-w-lg mx-auto mb-4">
+            <label class="block text-sm font-semibold mb-1">Competência <span class="text-red-500">*</span> <span class="text-gray-400 font-normal text-xs">— selecione antes de importar</span></label>
+            <input type="month" id="competencia-extrato"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]" required>
+        </div>
+        <div class="max-w-lg mx-auto mb-4">
+            <div id="drop-zone" onclick="document.getElementById('pdf-upload').click()"
+                 class="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center cursor-pointer hover:border-[#3b5bdb] hover:bg-indigo-50 transition">
+                <i class="fas fa-file-pdf text-4xl text-red-400 mb-2 block"></i>
+                <p class="font-semibold text-sm mb-1">Clique ou arraste o extrato PDF aqui</p>
+                <p class="text-xs text-gray-400" id="file-name-label">Bancos suportados: Nubank, Bradesco, Itaú, Sicoob, Santander, Inter e outros</p>
+            </div>
+            <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
+            <div class="flex justify-center mt-3">
+                <button id="btn-processar" onclick="processarExtrato()"
+                        class="bg-[#3b5bdb] hover:bg-[#3451c7] text-white font-semibold px-8 py-2 rounded-lg text-sm transition flex items-center gap-2">
+                    <i class="fas fa-cogs"></i> Processar Extrato
+                </button>
+            </div>
+            <div id="extrato-loading" class="hidden text-center py-8">
+                <div class="inline-block w-10 h-10 border-4 border-[#3b5bdb] border-t-transparent rounded-full animate-spin"></div>
+                <p class="mt-3 text-sm text-gray-500">Enviando e processando extrato…</p>
+            </div>
+            <div id="extrato-info" class="hidden mt-3"></div>
+        </div>
+        <div id="transacoes-container" class="hidden">
+            <div class="flex justify-between items-center mb-3">
+                <h6 class="font-bold text-sm flex items-center gap-2">
+                    Transações para Classificar
+                    <span class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full" id="badge-pending"></span>
+                </h6>
+                <button onclick="salvarTodasTransacoes()"
+                        class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2">
+                    <i class="fas fa-check"></i> Confirmar Todos os Lançamentos
+                </button>
+            </div>
+            <div id="transacoes-list"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- HISTÓRICO -->
+<div class="flex justify-between items-center mb-3">
+    <h5 class="font-bold flex items-center gap-2 text-gray-700">
+        <i class="fas fa-history text-gray-400"></i> Histórico de Lançamentos
+    </h5>
+    <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500">Mês:</label>
+        <input type="month" id="filtro-mes-hist" onchange="filtrarHistorico()"
+               class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tabela-historico">
+            <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                <tr>
+                    <th class="px-4 py-3 text-left">Competência</th>
+                    <th class="px-4 py-3 text-left">Data</th>
+                    <th class="px-4 py-3 text-left">Descrição</th>
+                    <th class="px-4 py-3 text-left">Valor</th>
+                    <th class="px-4 py-3 text-left">Tipo</th>
+                    <th class="px-4 py-3 text-left">Banco</th>
+                    <th class="px-4 py-3 text-left">Categoria</th>
+                    <th class="px-4 py-3 text-left">Origem</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for t in transactions %}
+                <tr data-comp="{{ t['competencia'] or '' }}" class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-gray-600">{{ t['competencia'] | competencia if t['competencia'] else '—' }}</td>
+                    <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ t['date'] | ddmmyyyy }}</td>
+                    <td class="px-4 py-2">{{ t['description'] }}</td>
+                    <td class="px-4 py-2 font-semibold {% if t['type'] == 'C' %}text-green-600{% else %}text-red-500{% endif %}">
+                        R$ {{ t['value'] }}
+                    </td>
+                    <td class="px-4 py-2">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full {% if t['type'] == 'C' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                            {{ t['type'] }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-gray-500">{{ t['bank'] or '—' }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ t['category'] or '—' }}</td>
+                    <td class="px-4 py-2">
+                        {% if t['source'] == 'manual' %}
+                        <span class="text-xs bg-gray-100 text-gray-600 font-semibold px-2 py-0.5 rounded-full">Manual</span>
+                        {% else %}
+                        <span class="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">Extrato</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2">
+                        {% set mes_status = month_status_map.get(t['competencia'], 'aberto') %}
+                        {% if mes_status == 'aberto' %}
+                        <button onclick="abrirEdicao({{ t['id'] }})"
+                                class="text-xs text-gray-500 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-100 transition">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center text-gray-400 py-12">
+                        <i class="fas fa-inbox text-3xl mb-2 block"></i>
+                        Nenhum lançamento ainda
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Editar Lançamento -->
+<div id="modal-editar" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h5 class="font-bold text-gray-800 flex items-center gap-2"><i class="fas fa-pen text-[#3b5bdb]"></i> Editar Lançamento</h5>
+            <button onclick="document.getElementById('modal-editar').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 space-y-3">
+            <input type="hidden" id="edit-id">
+            <input type="hidden" id="edit-competencia">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Data</label>
+                    <input type="date" id="edit-date"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Tipo</label>
+                    <select id="edit-type"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                        <option value="D">D — Débito</option>
+                        <option value="C">C — Crédito</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold mb-1">Descrição</label>
+                <input type="text" id="edit-description"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Valor (R$)</label>
+                    <input type="text" id="edit-value" inputmode="decimal"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Banco</label>
+                    <select id="edit-bank"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                        <option value="">Selecione</option>
+                        {% for b in banks %}
+                        <option value="{{ b['value'] }}" data-codigo="{{ b['codigo'] or '' }}">{{ b['value'] }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" id="edit-bank-code">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold mb-1">Categoria</label>
+                <select id="edit-category"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                    <option value="">Selecione</option>
+                    {% for c in categories %}
+                    <option value="{{ c['value'] }}" data-codigo="{{ c['codigo'] or '' }}">{{ c['value'] }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" id="edit-category-code">
+            </div>
+        </div>
+        <div class="px-5 pb-5 flex justify-end gap-2">
+            <button onclick="document.getElementById('modal-editar').classList.add('hidden')"
+                    class="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition">
+                Cancelar
+            </button>
+            <button onclick="salvarEdicao()"
+                    class="px-4 py-2 text-sm rounded-lg bg-[#3b5bdb] text-white font-semibold hover:bg-[#3451c7] transition flex items-center gap-2">
+                <i class="fas fa-save"></i> Salvar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Template transação extrato -->
+<template id="transacao-tpl">
+    <div class="transacao-card bg-white rounded-2xl border border-gray-200 border-l-4 border-l-red-400 p-4 mb-3 hover:shadow-md transition">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+            <div>
+                <div class="text-xs text-gray-400 mb-0.5">Data</div>
+                <strong class="tpl-data text-sm"></strong>
+            </div>
+            <div class="md:col-span-2">
+                <div class="text-xs text-gray-400 mb-0.5">Descrição</div>
+                <span class="tpl-descricao text-sm"></span>
+            </div>
+            <div>
+                <div class="text-xs text-gray-400 mb-0.5">Valor</div>
+                <strong class="tpl-valor text-sm text-red-500"></strong>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold mb-1">Banco <span class="text-red-500">*</span></label>
+                <select class="tpl-banco w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]" required>
+                    <option value="">Selecione</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold mb-1">Categoria <span class="text-red-500">*</span></label>
+                <select class="tpl-categoria w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]" required>
+                    <option value="">Selecione</option>
+                </select>
+            </div>
+            <input type="hidden" class="tpl-bank-code">
+            <input type="hidden" class="tpl-category-code">
+            <div class="flex flex-col gap-1 items-end">
+                <span class="tpl-status text-xs bg-yellow-100 text-yellow-700 font-semibold px-2 py-0.5 rounded-full">Pendente</span>
+                <button type="button" onclick="toggleSplit(this)"
+                        class="tpl-split-btn text-xs border border-gray-300 text-gray-500 rounded-lg px-2 py-1 hover:bg-gray-100 transition">
+                    <i class="fas fa-cut mr-1"></i>Dividir
+                </button>
+            </div>
+            <div class="col-span-2 md:col-span-6">
+                <label class="block text-xs font-semibold mb-1"><i class="fas fa-paperclip text-gray-400 mr-1"></i>Anexar Documentos (opcional)</label>
+                <input type="file" class="tpl-docs text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-600 file:text-xs" multiple accept=".pdf,.jpg,.jpeg,.png,.xml">
+            </div>
+        </div>
+        <div class="tpl-split-panel hidden mt-3 pt-3 border-t border-gray-100">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-semibold text-gray-500"><i class="fas fa-cut mr-1"></i>Divisão de valores</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400">Total: <strong class="tpl-split-total text-red-500">R$ 0,00</strong> / <span class="tpl-split-orig"></span></span>
+                    <button type="button" onclick="addSplitRow(this)"
+                            class="text-xs border border-[#3b5bdb] text-[#3b5bdb] rounded-lg px-2 py-1 hover:bg-indigo-50 transition">
+                        <i class="fas fa-plus mr-1"></i>Linha
+                    </button>
+                </div>
+            </div>
+            <div class="tpl-split-rows space-y-2"></div>
+            <div class="tpl-split-alert hidden mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                <i class="fas fa-exclamation-triangle mr-1"></i>A soma das divisões deve ser igual ao valor original.
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BANKS        = {{ banks | tojson }};
+const CATEGORIES   = {{ categories | tojson }};
+const MONTH_STATUS = {{ month_status_map | tojson }};
+let transacoesData = [];
+
+// ── Tabs ───────────────────────────────────────────────────────
+function switchTab(name) {
+    ['manual','extrato'].forEach(t => {
+        document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+        const btn = document.getElementById('tab-btn-' + t);
+        btn.classList.toggle('active-tab',   t === name);
+        btn.classList.toggle('inactive-tab', t !== name);
+    });
+}
+
+// ── Editar lançamento ──────────────────────────────────────────
+async function abrirEdicao(id) {
+    const res  = await fetch(`/client/lancamento/${id}/editar`);
+    const json = await res.json();
+    if (!json.success) { toast('danger', json.error); return; }
+    const d = json.data;
+    document.getElementById('edit-id').value          = d.id;
+    document.getElementById('edit-competencia').value = d.competencia;
+    document.getElementById('edit-date').value        = d.date;
+    document.getElementById('edit-description').value = d.description;
+    document.getElementById('edit-value').value       = d.value;
+    document.getElementById('edit-type').value        = d.type;
+    if (d.competencia) {
+        const [y,m] = d.competencia.split('-').map(Number);
+        const ult = new Date(y,m,0).getDate();
+        document.getElementById('edit-date').min = `${d.competencia}-01`;
+        document.getElementById('edit-date').max = `${d.competencia}-${String(ult).padStart(2,'0')}`;
+    }
+    document.getElementById('edit-bank').value          = d.bank || '';
+    document.getElementById('edit-bank-code').value     = d.bank_code || '';
+    document.getElementById('edit-category').value      = d.category || '';
+    document.getElementById('edit-category-code').value = d.category_code || '';
+    document.getElementById('modal-editar').classList.remove('hidden');
+}
+
+document.getElementById('edit-bank').addEventListener('change', function() {
+    document.getElementById('edit-bank-code').value = this.options[this.selectedIndex]?.dataset.codigo || '';
+});
+document.getElementById('edit-category').addEventListener('change', function() {
+    document.getElementById('edit-category-code').value = this.options[this.selectedIndex]?.dataset.codigo || '';
+});
+
+async function salvarEdicao() {
+    const id = document.getElementById('edit-id').value;
+    const fd = new FormData();
+    ['date','description','value','type'].forEach(k => fd.append(k, document.getElementById('edit-' + k).value));
+    fd.append('bank',          document.getElementById('edit-bank').value);
+    fd.append('bank_code',     document.getElementById('edit-bank-code').value);
+    fd.append('category',      document.getElementById('edit-category').value);
+    fd.append('category_code', document.getElementById('edit-category-code').value);
+    const res  = await fetch(`/client/lancamento/${id}/editar`, { method: 'POST', body: fd });
+    const json = await res.json();
+    document.getElementById('modal-editar').classList.add('hidden');
+    if (json.success) { toast('success','Lançamento atualizado!'); setTimeout(() => location.reload(), 1200); }
+    else toast('danger', json.error);
+}
+
+// ── Código selects manuais ─────────────────────────────────────
+function wireCodeSelect(selId, codeId) {
+    document.getElementById(selId)?.addEventListener('change', function() {
+        document.getElementById(codeId).value = this.options[this.selectedIndex]?.dataset.codigo || '';
+    });
+}
+wireCodeSelect('sel-bank-manual', 'bank_code_manual');
+wireCodeSelect('sel-cat-manual',  'category_code_manual');
+
+// ── Restringe data manual ao mês da competência ────────────────
+function atualizarLimiteData() {
+    const comp = document.getElementById('competencia-manual').value;
+    const dataInput = document.getElementById('data-manual');
+    if (!comp) { dataInput.min = ''; dataInput.max = ''; return; }
+    const [y, m] = comp.split('-').map(Number);
+    const pad = n => String(n).padStart(2,'0');
+    const ultimo = new Date(y, m, 0).getDate();
+    dataInput.min = `${comp}-01`;
+    dataInput.max = `${comp}-${pad(ultimo)}`;
+    if (dataInput.value < dataInput.min || dataInput.value > dataInput.max)
+        dataInput.value = `${comp}-01`;
+}
+document.getElementById('competencia-manual').addEventListener('change', atualizarLimiteData);
+
+// Default competência
+(function() {
+    const ym = new Date().toISOString().slice(0,7);
+    document.getElementById('competencia-manual').value  = ym;
+    document.getElementById('competencia-extrato').value = ym;
+    atualizarLimiteData();
+})();
+
+// ── Currency mask ──────────────────────────────────────────────
+document.getElementById('valor-manual').addEventListener('input', function() {
+    let raw = this.value.replace(/\D/g,'');
+    if (!raw) { this.value = ''; return; }
+    let cents = parseInt(raw, 10);
+    this.value = Math.floor(cents/100).toLocaleString('pt-BR') + ',' + String(cents%100).padStart(2,'0');
+});
+
+// ── Manual form submit ─────────────────────────────────────────
+document.getElementById('form-manual').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>Salvando…';
+    try {
+        const res  = await fetch('/client/lancamento/manual', { method: 'POST', body: new FormData(e.target) });
+        const json = await res.json();
+        if (json.success) { toast('success','Lançamento salvo!'); e.target.reset(); setTimeout(() => location.reload(), 1600); }
+        else toast('danger', json.error || 'Erro ao salvar');
+    } catch (_) { toast('danger','Erro de conexão'); }
+    finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Lançamento';
+    }
+});
+
+// ── Drop zone ──────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const pdfInput = document.getElementById('pdf-upload');
+pdfInput.addEventListener('change', () => {
+    if (pdfInput.files.length)
+        document.getElementById('file-name-label').textContent = '📄 ' + pdfInput.files[0].name;
+});
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('border-[#3b5bdb]','bg-indigo-50'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('border-[#3b5bdb]','bg-indigo-50'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('border-[#3b5bdb]','bg-indigo-50');
+    const file = e.dataTransfer.files[0];
+    if (file?.name.endsWith('.pdf')) {
+        const dt = new DataTransfer(); dt.items.add(file); pdfInput.files = dt.files;
+        document.getElementById('file-name-label').textContent = '📄 ' + file.name;
+    }
+});
+
+// ── Detectar competência do extrato ───────────────────────────
+function detectarCompetencia(transacoes) {
+    const data = transacoes?.[0]?.data;
+    if (!data) return null;
+    if (data.length >= 10 && data[4] === '-') return data.substring(0,7);
+    if (data.length >= 10 && data[2] === '/') return `${data.slice(6,10)}-${data.slice(3,5)}`;
+    return null;
+}
+function fmtComp(yyyymm) {
+    if (!yyyymm || yyyymm.length !== 7) return yyyymm;
+    const [y,m] = yyyymm.split('-'); return `${m}/${y}`;
+}
+
+// ── Process extract ────────────────────────────────────────────
+async function processarExtrato() {
+    if (!document.getElementById('competencia-extrato').value) {
+        toast('warning','Selecione a competência antes de processar'); return;
+    }
+    if (!pdfInput.files.length) { toast('warning','Selecione um arquivo PDF'); return; }
+    const formData = new FormData();
+    formData.append('file', pdfInput.files[0]);
+    document.getElementById('extrato-loading').classList.remove('hidden');
+    document.getElementById('btn-processar').disabled = true;
+    document.getElementById('transacoes-container').classList.add('hidden');
+    document.getElementById('extrato-info').classList.add('hidden');
+    try {
+        const res  = await fetch('/client/extrato/processar', { method: 'POST', body: formData });
+        const json = await res.json();
+        document.getElementById('extrato-loading').classList.add('hidden');
+        const info = document.getElementById('extrato-info');
+        info.classList.remove('hidden');
+        if (json.success) {
+            const compSel = document.getElementById('competencia-extrato').value;
+            const compExt = detectarCompetencia(json.transacoes);
+            if (compExt && compExt !== compSel) {
+                info.className = 'mt-3 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700';
+                info.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i><strong>Divergência de competência!</strong><br>
+                    O extrato é referente a <strong>${fmtComp(compExt)}</strong>, mas a competência selecionada é <strong>${fmtComp(compSel)}</strong>.<br>
+                    <small class="text-red-500">Corrija a competência antes de processar este extrato.</small>`;
+                return;
+            }
+            info.className = 'mt-3 bg-blue-50 border border-blue-200 rounded-xl p-4';
+            info.innerHTML = `<div class="grid grid-cols-4 gap-2 text-center text-sm">
+                <div><div class="font-bold text-gray-800">${json.banco}</div><div class="text-xs text-gray-400">Banco</div></div>
+                <div><div class="font-bold text-gray-800">${json.total}</div><div class="text-xs text-gray-400">Total</div></div>
+                <div><div class="font-bold text-red-500">${json.total_d}</div><div class="text-xs text-gray-400">Débitos</div></div>
+                <div><div class="font-bold text-yellow-600">${json.transacoes.length}</div><div class="text-xs text-gray-400">Classificar</div></div>
+            </div>`;
+            transacoesData = json.transacoes;
+            renderTransacoes(json.transacoes, json.banco);
+        } else {
+            info.className = 'mt-3 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700';
+            info.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${json.error}`;
+        }
+    } catch (_) { toast('danger','Erro ao conectar com o servidor'); }
+    finally { document.getElementById('btn-processar').disabled = false; }
+}
+
+// ── Render transaction cards ───────────────────────────────────
+// Remove sufixos numéricos e normaliza para comparação (ex: "Sicoob1" → "sicoob")
+function normalizarBanco(nome) {
+    return (nome || '').toLowerCase().replace(/\s*\d+$/, '').trim();
+}
+
+function renderTransacoes(transacoes, bancoApi) {
+    const container = document.getElementById('transacoes-container');
+    const list = document.getElementById('transacoes-list');
+    document.getElementById('badge-pending').textContent = transacoes.length + ' pendentes';
+    if (!transacoes.length) {
+        list.innerHTML = `<div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700">
+            <i class="fas fa-check-circle mr-2"></i>Todas as transações já foram reconciliadas!</div>`;
+        container.classList.remove('hidden'); return;
+    }
+    list.innerHTML = '';
+    transacoes.forEach((t, i) => {
+        const tpl  = document.getElementById('transacao-tpl').content.cloneNode(true);
+        const card = tpl.querySelector('.transacao-card');
+        card.dataset.index = i; card.dataset.valor = t.valor;
+        card.querySelector('.tpl-data').textContent = t.data;
+        card.querySelector('.tpl-descricao').textContent = t.descricao;
+        card.querySelector('.tpl-valor').textContent = 'R$ ' + t.valor;
+        card.querySelector('.tpl-split-orig').textContent = 'R$ ' + t.valor;
+        const bankSel  = card.querySelector('.tpl-banco');
+        const catSel   = card.querySelector('.tpl-categoria');
+        const bankCode = card.querySelector('.tpl-bank-code');
+        const catCode  = card.querySelector('.tpl-category-code');
+        BANKS.forEach(b => { const o = new Option(b.value, b.value); o.dataset.codigo = b.codigo||''; bankSel.appendChild(o); });
+        CATEGORIES.forEach(c => { const o = new Option(c.value, c.value); o.dataset.codigo = c.codigo||''; catSel.appendChild(o); });
+        bankSel.addEventListener('change', () => bankCode.value = bankSel.options[bankSel.selectedIndex]?.dataset.codigo||'');
+        catSel.addEventListener('change',  () => catCode.value  = catSel.options[catSel.selectedIndex]?.dataset.codigo||'');
+
+        // Auto-seleciona banco da API (ignora sufixos numéricos: "Sicoob1" → "Sicoob")
+        if (bancoApi) {
+            const apiNorm = normalizarBanco(bancoApi);
+            for (const opt of bankSel.options) {
+                if (normalizarBanco(opt.value) === apiNorm) {
+                    bankSel.value  = opt.value;
+                    bankCode.value = opt.dataset.codigo || '';
+                    break;
+                }
+            }
+        }
+        list.appendChild(tpl);
+    });
+    container.classList.remove('hidden');
+}
+
+// ── Split helpers ──────────────────────────────────────────────
+function toggleSplit(btn) {
+    const card  = btn.closest('.transacao-card');
+    const panel = card.querySelector('.tpl-split-panel');
+    const isOpen = !panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', isOpen);
+    if (!isOpen && !card.querySelector('.tpl-split-rows').children.length) {
+        addSplitRow(btn); addSplitRow(btn);
+    }
+}
+function addSplitRow(btn) {
+    const card = btn.closest('.transacao-card');
+    const rows = card.querySelector('.tpl-split-rows');
+    const div  = document.createElement('div');
+    div.className = 'flex gap-2 items-center split-row';
+    div.innerHTML = `
+        <div class="flex rounded-lg border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-[#3b5bdb] w-36">
+            <span class="bg-gray-50 px-2 flex items-center border-r border-gray-300 text-xs text-gray-400">R$</span>
+            <input type="text" class="split-valor flex-1 px-2 py-1.5 text-xs outline-none" placeholder="0,00" inputmode="decimal">
+        </div>
+        <select class="split-categoria flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+            <option value="">Categoria</option>
+            ${CATEGORIES.map(c => `<option value="${c.value}" data-codigo="${c.codigo||''}">${c.value}</option>`).join('')}
+        </select>
+        <input type="hidden" class="split-category-code">
+        <button type="button" onclick="removeSplitRow(this)" class="text-red-400 hover:text-red-600 px-1">
+            <i class="fas fa-times text-xs"></i>
+        </button>`;
+    div.querySelector('.split-categoria').addEventListener('change', function() {
+        div.querySelector('.split-category-code').value = this.options[this.selectedIndex]?.dataset.codigo||'';
+        updateSplitTotal(card);
+    });
+    div.querySelector('.split-valor').addEventListener('input', function() {
+        let raw = this.value.replace(/\D/g,'');
+        if (!raw) { this.value = ''; updateSplitTotal(card); return; }
+        let c = parseInt(raw,10);
+        this.value = Math.floor(c/100).toLocaleString('pt-BR') + ',' + String(c%100).padStart(2,'0');
+        updateSplitTotal(card);
+    });
+    rows.appendChild(div);
+    updateSplitTotal(card);
+}
+function removeSplitRow(btn) {
+    const card = btn.closest('.transacao-card');
+    btn.closest('.split-row').remove();
+    updateSplitTotal(card);
+}
+function parseBR(str) { return str ? parseFloat(str.replace(/\./g,'').replace(',','.')) || 0 : 0; }
+function updateSplitTotal(card) {
+    let sum = 0;
+    card.querySelectorAll('.split-row').forEach(r => sum += parseBR(r.querySelector('.split-valor').value));
+    const orig = parseBR(card.dataset.valor);
+    const fmt  = sum.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const el   = card.querySelector('.tpl-split-total');
+    el.textContent = 'R$ ' + fmt;
+    const ok = Math.abs(sum - orig) < 0.005;
+    el.className = ok ? 'tpl-split-total text-green-600 font-semibold' : 'tpl-split-total text-red-500 font-semibold';
+    card.querySelector('.tpl-split-alert').classList.toggle('hidden', ok);
+}
+
+// ── Save all transactions ──────────────────────────────────────
+async function salvarTodasTransacoes() {
+    const cards = document.querySelectorAll('.transacao-card');
+    const errors = []; let saved = 0;
+    for (const card of cards) {
+        const i = parseInt(card.dataset.index);
+        const t = transacoesData[i];
+        const splitPanel = card.querySelector('.tpl-split-panel');
+        const isSplit = !splitPanel.classList.contains('hidden');
+        const comp = document.getElementById('competencia-extrato').value;
+        if (isSplit) {
+            const bank = card.querySelector('.tpl-banco').value;
+            const bankCode = card.querySelector('.tpl-bank-code').value;
+            if (!bank) { errors.push(`"${t.descricao}": selecione o banco`); continue; }
+            let splitItems = []; let valid = true;
+            card.querySelectorAll('.split-row').forEach(r => {
+                const valor = r.querySelector('.split-valor').value;
+                const cat   = r.querySelector('.split-categoria').value;
+                const catCode = r.querySelector('.split-category-code').value;
+                if (!valor || !cat) valid = false;
+                splitItems.push({ valor, cat, catCode });
+            });
+            if (!valid) { errors.push(`"${t.descricao}": preencha valor e categoria em todas as divisões`); continue; }
+            const sum = splitItems.reduce((a,s) => a + parseBR(s.valor), 0);
+            if (Math.abs(sum - parseBR(t.valor)) >= 0.005) { errors.push(`"${t.descricao}": soma ≠ valor original`); continue; }
+            const docFiles = card.querySelector('.tpl-docs').files;
+            let cardSaved = 0;
+            for (const s of splitItems) {
+                const fd = new FormData();
+                fd.append('competencia',s.comp||comp); fd.append('date',t.data); fd.append('description',t.descricao);
+                fd.append('value',s.valor); fd.append('type',t.tipo); fd.append('bank',bank); fd.append('bank_code',bankCode);
+                fd.append('category',s.cat); fd.append('category_code',s.catCode); fd.append('competencia',comp);
+                if (cardSaved === 0) for (const f of docFiles) fd.append('documents', f);
+                try {
+                    const res  = await fetch('/client/transacao/salvar', { method:'POST', body:fd });
+                    const json = await res.json();
+                    if (json.success) { cardSaved++; saved++; }
+                    else errors.push(`Erro em "${t.descricao}": ${json.error}`);
+                } catch(_) { errors.push(`Falha em "${t.descricao}"`); }
+            }
+            if (cardSaved === splitItems.length) {
+                card.classList.add('opacity-60'); card.style.borderLeftColor = '#40c057';
+                card.querySelector('.tpl-status').textContent = `Salvo ✓ (${cardSaved} divisões)`;
+                card.querySelector('.tpl-status').className = 'tpl-status text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full';
+            }
+            continue;
+        }
+        const bank = card.querySelector('.tpl-banco').value;
+        const category = card.querySelector('.tpl-categoria').value;
+        if (!bank || !category) { errors.push(`"${t.descricao}": banco e categoria são obrigatórios`); continue; }
+        const fd = new FormData();
+        fd.append('competencia',comp); fd.append('date',t.data); fd.append('description',t.descricao);
+        fd.append('value',t.valor); fd.append('type',t.tipo); fd.append('bank',bank);
+        fd.append('bank_code',card.querySelector('.tpl-bank-code').value);
+        fd.append('category',category); fd.append('category_code',card.querySelector('.tpl-category-code').value);
+        for (const f of card.querySelector('.tpl-docs').files) fd.append('documents', f);
+        try {
+            const res  = await fetch('/client/transacao/salvar', { method:'POST', body:fd });
+            const json = await res.json();
+            if (json.success) {
+                saved++; card.classList.add('opacity-60'); card.style.borderLeftColor = '#40c057';
+                card.querySelector('.tpl-status').textContent = 'Salvo ✓';
+                card.querySelector('.tpl-status').className = 'tpl-status text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full';
+            } else errors.push(`Erro em "${t.descricao}": ${json.error}`);
+        } catch(_) { errors.push(`Falha em "${t.descricao}"`); }
+    }
+    if (errors.length) toast('warning', errors.length + ' item(ns) com erro.');
+    if (saved > 0) { toast('success', `${saved} lançamento(s) salvos!`); setTimeout(() => location.reload(), 2000); }
+}
+
+// ── Histórico filter ───────────────────────────────────────────
+function filtrarHistorico() {
+    const val = document.getElementById('filtro-mes-hist').value;
+    document.querySelectorAll('#tabela-historico tbody tr[data-comp]').forEach(tr => {
+        tr.style.display = (!val || tr.dataset.comp === val) ? '' : 'none';
+    });
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const ym = new Date().toISOString().slice(0, 7);
+    document.getElementById('filtro-mes-hist').value = ym;
+    filtrarHistorico();
+});
+
+// ── Toast ──────────────────────────────────────────────────────
+function toast(type, message) {
+    const colors = { success:'bg-green-50 border-green-300 text-green-800', danger:'bg-red-50 border-red-300 text-red-800', warning:'bg-yellow-50 border-yellow-300 text-yellow-800' };
+    const el = document.createElement('div');
+    el.className = `fixed top-4 right-4 z-50 min-w-72 border rounded-xl px-4 py-3 text-sm shadow-lg flex items-center justify-between gap-3 ${colors[type]||colors.warning}`;
+    el.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 text-lg leading-none">&times;</button>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+</script>
+<style>
+.active-tab   { color:#3b5bdb; border-color:#3b5bdb; font-weight:700; }
+.inactive-tab { color:#6b7280; border-color:transparent; }
+.inactive-tab:hover { color:#3b5bdb; }
+</style>
+{% endblock %}

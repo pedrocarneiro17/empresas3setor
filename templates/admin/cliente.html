@@ -1,0 +1,464 @@
+{% extends 'base.html' %}
+{% block title %}{{ client['name'] }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex items-center gap-3 mb-5">
+    <a href="/admin" class="text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg px-3 py-1.5 text-sm transition">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div class="w-10 h-10 rounded-full bg-[#3b5bdb] text-white flex items-center justify-center font-bold text-lg shrink-0">
+        {{ client['name'][0] | upper }}
+    </div>
+    <div>
+        <h5 class="font-bold text-gray-800 leading-tight">{{ client['name'] }}</h5>
+        <span class="text-xs text-gray-500">{{ client['email'] }}</span>
+    </div>
+</div>
+
+<!-- Tabs nav -->
+<div class="border-b border-gray-200 mb-0">
+    <ul class="flex gap-1 -mb-px" id="clienteTabs">
+        <li>
+            <button onclick="switchTab('geral')" id="tab-btn-geral"
+                    class="tab-btn px-5 py-2.5 text-sm font-semibold border-b-2 transition active-tab">
+                <i class="fas fa-list mr-2"></i>Geral
+            </button>
+        </li>
+        <li>
+            <button onclick="switchTab('editar')" id="tab-btn-editar"
+                    class="tab-btn px-5 py-2.5 text-sm font-semibold border-b-2 transition inactive-tab">
+                <i class="fas fa-user-edit mr-2"></i>Editar
+            </button>
+        </li>
+    </ul>
+</div>
+
+<div class="bg-white border border-t-0 border-gray-200 rounded-b-2xl shadow-sm p-5 mb-6">
+
+<!-- ══════════ TAB GERAL ══════════ -->
+<div id="tab-geral">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- Left column -->
+    <div class="space-y-4">
+
+        <!-- Banks -->
+        <div class="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+            <div class="bg-[#3b5bdb] text-white text-sm font-semibold px-4 py-3">
+                <i class="fas fa-university mr-2"></i>Bancos Cadastrados
+            </div>
+            <div class="p-4">
+                <div id="banks-list" class="space-y-1 mb-3">
+                    {% for b in banks %}
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100" id="bank-{{ b['id'] }}">
+                        <span class="text-sm"><code class="text-[#3b5bdb] text-xs mr-2 bg-indigo-50 px-1 rounded">{{ b['codigo'] or '—' }}</code>{{ b['value'] }}</span>
+                        <button onclick="deleteOption({{ b['id'] }}, 'bank-{{ b['id'] }}')"
+                                class="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded border border-red-200 hover:border-red-400 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-400 text-sm" id="banks-empty">Nenhum banco cadastrado.</p>
+                    {% endfor %}
+                </div>
+                <div class="flex gap-1">
+                    <input type="text" id="new-bank-cod" placeholder="CÓD" maxlength="10"
+                           oninput="this.value=this.value.toUpperCase()"
+                           class="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3b5bdb] uppercase">
+                    <input type="text" id="new-bank" placeholder="Nome do banco"
+                           class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                    <button onclick="addOption('bank','new-bank','banks-list','bank','new-bank-cod')"
+                            class="bg-[#3b5bdb] text-white px-3 py-1.5 rounded-lg text-xs hover:bg-[#3451c7] transition">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+            <div class="bg-[#0ca678] text-white text-sm font-semibold px-4 py-3">
+                <i class="fas fa-tags mr-2"></i>Categorias Cadastradas
+            </div>
+            <div class="p-4">
+                <div id="categories-list" class="space-y-1 mb-3">
+                    {% for c in categories %}
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100" id="cat-{{ c['id'] }}">
+                        <span class="text-sm"><code class="text-green-600 text-xs mr-2 bg-green-50 px-1 rounded">{{ c['codigo'] or '—' }}</code>{{ c['value'] }}</span>
+                        <button onclick="deleteOption({{ c['id'] }}, 'cat-{{ c['id'] }}')"
+                                class="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded border border-red-200 hover:border-red-400 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-400 text-sm" id="cats-empty">Nenhuma categoria cadastrada.</p>
+                    {% endfor %}
+                </div>
+                <div class="flex gap-1">
+                    <input type="text" id="new-cat-cod" placeholder="CÓD" maxlength="10"
+                           oninput="this.value=this.value.toUpperCase()"
+                           class="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0ca678] uppercase">
+                    <input type="text" id="new-cat" placeholder="Nome da categoria"
+                           class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0ca678]">
+                    <button onclick="addOption('category','new-cat','categories-list','cat','new-cat-cod')"
+                            class="bg-[#0ca678] text-white px-3 py-1.5 rounded-lg text-xs hover:bg-[#099268] transition">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boleto Reconciliation -->
+        <div class="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+            <div class="bg-[#f59f00] text-white text-sm font-semibold px-4 py-3">
+                <i class="fas fa-sync-alt mr-2"></i>Reconciliar Boletos
+            </div>
+            <div class="p-4">
+                <p class="text-xs text-gray-500 mb-3">Envie o CSV do sistema. O extrato é gerado automaticamente a partir das transações já classificadas pelo cliente.</p>
+                <form id="form-boletos" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">Competência <span class="text-red-500">*</span></label>
+                        <input type="month" name="competencia" id="competencia-boletos"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">CSV do Sistema</label>
+                        <input type="file" name="csv2" accept=".csv" required
+                               class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-yellow-50 file:text-yellow-700 file:font-semibold hover:file:bg-yellow-100">
+                        <p class="text-xs text-gray-400 mt-1">Com coluna "Valor parcela"</p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-semibold py-2 rounded-lg text-sm transition">
+                        <i class="fas fa-upload mr-2"></i>Enviar CSV do Sistema
+                    </button>
+                </form>
+                <div id="boleto-result" class="mt-3 hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="lg:col-span-2 space-y-4">
+
+        <!-- Downloads -->
+        <div class="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+                <div class="font-semibold text-green-800 text-sm flex items-center gap-2">
+                    <i class="fas fa-file-alt"></i> Downloads do Cliente
+                </div>
+                <p class="text-xs text-green-600 mt-0.5">Conciliado (TXT) · Extrato completo (CSV)</p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <a href="/admin/cliente/{{ client['id'] }}/download/transacoes"
+                   class="text-sm font-semibold px-4 py-1.5 rounded-lg border border-[#3b5bdb] text-[#3b5bdb] hover:bg-[#3b5bdb] hover:text-white transition flex items-center gap-2">
+                    <i class="fas fa-download"></i> Extrato CSV
+                </a>
+                <a href="/admin/cliente/{{ client['id'] }}/download/conciliado"
+                   class="text-sm font-semibold px-4 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center gap-2">
+                    <i class="fas fa-download"></i> Conciliado TXT
+                </a>
+            </div>
+        </div>
+
+        <!-- Reconciliation history -->
+        {% if reconciliations %}
+        <div class="rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">
+                <i class="fas fa-history mr-2 text-gray-400"></i>Histórico de Reconciliações
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                        <tr>
+                            <th class="px-4 py-2 text-left">Competência</th>
+                            <th class="px-4 py-2 text-left">Data</th>
+                            <th class="px-4 py-2 text-center">Correspondências</th>
+                            <th class="px-4 py-2 text-center">Sem correspondência</th>
+                            <th class="px-4 py-2 text-right">Download</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for r in reconciliations %}
+                        {% set result = r['result_json'] | fromjson %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 font-semibold">{{ r['competencia'] | competencia if r['competencia'] else '—' }}</td>
+                            <td class="px-4 py-2 text-gray-500">{{ r['date'][:16] }}</td>
+                            <td class="px-4 py-2 text-center">
+                                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">{{ result.total_correspondencias }}</span>
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">{{ result.total_sem_correspondencia }}</span>
+                            </td>
+                            <td class="px-4 py-2 text-right">
+                                <a href="/admin/cliente/{{ client['id'] }}/download/extrato/{{ r['id'] }}"
+                                   class="text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-100 transition">
+                                    <i class="fas fa-download mr-1"></i>Extrato
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Status por Competência -->
+        <div class="rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">
+                <i class="fas fa-calendar-alt mr-2 text-gray-400"></i>Status por Competência
+            </div>
+            {% if meses %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                        <tr>
+                            <th class="px-4 py-2 text-left">Competência</th>
+                            <th class="px-4 py-2 text-center">Extrato Cliente</th>
+                            <th class="px-4 py-2 text-center">CSV Sistema</th>
+                            <th class="px-4 py-2 text-center">Status</th>
+                            <th class="px-4 py-2 text-right">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for m in meses %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 font-semibold">{{ m['competencia'] | competencia }}</td>
+                            <td class="px-4 py-2 text-center">
+                                {% if m['has_extrato'] %}
+                                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Enviado</span>
+                                {% else %}
+                                <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-full"><i class="fas fa-times mr-1"></i>Pendente</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                {% if m['has_sistema'] %}
+                                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Enviado</span>
+                                {% else %}
+                                <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-full"><i class="fas fa-times mr-1"></i>Pendente</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                {% if m['status'] == 'fechado' %}
+                                <div>
+                                    <span class="bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full"><i class="fas fa-lock mr-1"></i>Fechado</span>
+                                    {% if m['closed_at'] %}
+                                    <div class="text-xs text-gray-400 mt-0.5">{{ m['closed_at'][:10] | ddmmyyyy }}</div>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full"><i class="fas fa-lock-open mr-1"></i>Aberto</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-right">
+                                {% if m['status'] == 'fechado' %}
+                                <button onclick="reabrirMes('{{ m['competencia'] }}')"
+                                        class="text-xs font-semibold text-yellow-700 border border-yellow-300 rounded-lg px-2 py-1 hover:bg-yellow-50 transition">
+                                    <i class="fas fa-lock-open mr-1"></i>Reabrir
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center text-gray-400 py-8">
+                <i class="fas fa-calendar fa-2x mb-2 block"></i>Nenhuma competência registrada ainda
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+</div><!-- end tab-geral -->
+
+<!-- ══════════ TAB EDITAR ══════════ -->
+<div id="tab-editar" class="hidden">
+    <div class="max-w-lg mx-auto space-y-4">
+        <div class="rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">
+                <i class="fas fa-save mr-2 text-gray-400"></i>Dados do Cliente
+            </div>
+            <form id="form-editar-cliente" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Nome</label>
+                    <input type="text" name="name" value="{{ client['name'] }}" required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">E-mail</label>
+                    <input type="email" name="email" value="{{ client['email'] }}" required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">
+                        Nova senha <span class="text-gray-400 font-normal text-xs">(deixe em branco para manter)</span>
+                    </label>
+                    <input type="password" name="password" placeholder="Nova senha"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <button type="submit"
+                        class="w-full bg-[#3b5bdb] hover:bg-[#3451c7] text-white font-semibold py-2 rounded-lg text-sm transition">
+                    <i class="fas fa-save mr-2"></i>Salvar Alterações
+                </button>
+            </form>
+        </div>
+
+        <div class="rounded-xl border border-red-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-red-100 font-semibold text-sm text-red-600">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Zona de Perigo
+            </div>
+            <div class="p-5 text-center">
+                <p class="text-sm text-gray-500 mb-4">Remove o cliente e todos os dados permanentemente — lançamentos, reconciliações, documentos e histórico.</p>
+                <button onclick="excluirCliente()"
+                        class="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 rounded-lg text-sm transition">
+                    <i class="fas fa-trash mr-2"></i>Excluir Cliente
+                </button>
+            </div>
+        </div>
+    </div>
+</div><!-- end tab-editar -->
+
+</div><!-- end tab-content -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLIENT_ID = {{ client['id'] }};
+
+// ── Tabs ───────────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('[id^="tab-"]').forEach(el => {
+        if (!el.id.startsWith('tab-btn')) el.classList.add('hidden');
+    });
+    document.getElementById('tab-' + name).classList.remove('hidden');
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active-tab');
+        btn.classList.add('inactive-tab');
+    });
+    document.getElementById('tab-btn-' + name).classList.add('active-tab');
+    document.getElementById('tab-btn-' + name).classList.remove('inactive-tab');
+}
+
+// Default competência
+(function () {
+    const now = new Date();
+    const ym  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    document.getElementById('competencia-boletos').value = ym;
+})();
+
+// ── Add option ─────────────────────────────────────────────────
+async function addOption(type, inputId, listId, prefix, codigoInputId) {
+    const input  = document.getElementById(inputId);
+    const codEl  = document.getElementById(codigoInputId);
+    const value  = input.value.trim();
+    const codigo = codEl ? codEl.value.trim().toUpperCase() : '';
+    if (!codigo) { codEl?.focus(); toast('warning', 'Informe o código'); return; }
+    if (!value)  { input.focus();  toast('warning', 'Informe o nome');   return; }
+    const fd = new FormData();
+    fd.append('type', type); fd.append('codigo', codigo); fd.append('value', value);
+    const res  = await fetch(`/admin/cliente/${CLIENT_ID}/opcao`, { method: 'POST', body: fd });
+    const json = await res.json();
+    if (json.success) {
+        const empty = document.getElementById(prefix === 'bank' ? 'banks-empty' : 'cats-empty');
+        if (empty) empty.remove();
+        const colorClass = prefix === 'bank' ? 'text-[#3b5bdb] bg-indigo-50' : 'text-green-600 bg-green-50';
+        const list = document.getElementById(listId);
+        const div  = document.createElement('div');
+        div.className = 'flex justify-between items-center py-1 border-b border-gray-100';
+        div.id = `${prefix}-${json.id}`;
+        div.innerHTML = `
+            <span class="text-sm"><code class="${colorClass} text-xs mr-2 px-1 rounded">${json.codigo}</code>${json.value}</span>
+            <button onclick="deleteOption(${json.id}, '${prefix}-${json.id}')"
+                    class="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded border border-red-200 hover:border-red-400 transition">
+                <i class="fas fa-times"></i>
+            </button>`;
+        list.appendChild(div);
+        input.value = ''; if (codEl) codEl.value = '';
+    } else { toast('warning', json.error || 'Erro ao adicionar'); }
+}
+
+// ── Delete option ──────────────────────────────────────────────
+async function deleteOption(optId, elemId) {
+    if (!confirm('Remover esta opção?')) return;
+    const res  = await fetch(`/admin/cliente/${CLIENT_ID}/opcao/${optId}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) document.getElementById(elemId)?.remove();
+}
+
+// ── Boleto reconciliation ──────────────────────────────────────
+document.getElementById('form-boletos').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>Processando…';
+    try {
+        const res  = await fetch(`/admin/cliente/${CLIENT_ID}/boletos`, { method: 'POST', body: new FormData(e.target) });
+        const json = await res.json();
+        const resultEl = document.getElementById('boleto-result');
+        resultEl.classList.remove('hidden');
+        if (json.success) {
+            resultEl.className = 'mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800';
+            resultEl.innerHTML = `<strong><i class="fas fa-check-circle mr-1"></i>Reconciliação concluída!</strong><br>
+                ✅ Correspondências: <strong>${json.total_correspondencias}</strong> &nbsp;
+                ❌ Sem correspondência: <strong>${json.total_sem_correspondencia}</strong>`;
+            setTimeout(() => location.reload(), 3000);
+        } else {
+            resultEl.className = 'mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700';
+            resultEl.innerHTML = `<i class="fas fa-times-circle mr-1"></i>${json.error}`;
+        }
+    } catch (_) {
+        toast('danger', 'Erro de conexão');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload mr-2"></i>Enviar CSV do Sistema';
+    }
+});
+
+// ── Editar cliente ─────────────────────────────────────────────
+document.getElementById('form-editar-cliente').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const res  = await fetch(`/admin/cliente/${CLIENT_ID}/editar`, { method: 'POST', body: new FormData(e.target) });
+    const json = await res.json();
+    btn.disabled = false;
+    if (json.success) { toast('success', 'Dados atualizados!'); setTimeout(() => location.reload(), 1200); }
+    else toast('danger', json.error || 'Erro ao salvar');
+});
+
+async function excluirCliente() {
+    if (!confirm('Excluir este cliente? Todos os dados serão removidos permanentemente.')) return;
+    const res  = await fetch(`/admin/cliente/${CLIENT_ID}/excluir`, { method: 'POST' });
+    const json = await res.json();
+    if (json.success) window.location.href = '/admin';
+    else toast('danger', json.error || 'Erro ao excluir');
+}
+
+async function reabrirMes(competencia) {
+    if (!confirm(`Reabrir o mês ${competencia.split('-').reverse().join('/')} para o cliente?`)) return;
+    const fd = new FormData(); fd.append('competencia', competencia);
+    const res  = await fetch(`/admin/cliente/${CLIENT_ID}/reabrir-mes`, { method: 'POST', body: fd });
+    const json = await res.json();
+    if (json.success) { toast('success', 'Mês reaberto!'); setTimeout(() => location.reload(), 1200); }
+    else toast('danger', json.error);
+}
+
+function toast(type, message) {
+    const colors = { success: 'bg-green-50 border-green-300 text-green-800', danger: 'bg-red-50 border-red-300 text-red-800', warning: 'bg-yellow-50 border-yellow-300 text-yellow-800' };
+    const el = document.createElement('div');
+    el.className = `fixed top-4 right-4 z-50 min-w-72 border rounded-xl px-4 py-3 text-sm shadow-lg flex items-center justify-between gap-3 ${colors[type] || colors.warning}`;
+    el.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 text-lg leading-none">&times;</button>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+</script>
+<style>
+.active-tab   { color:#3b5bdb; border-color:#3b5bdb; font-weight:700; }
+.inactive-tab { color:#6b7280; border-color:transparent; }
+.inactive-tab:hover { color:#3b5bdb; }
+</style>
+{% endblock %}

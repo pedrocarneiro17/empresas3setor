@@ -1,0 +1,21 @@
+/* Drop zone drag state */
+.drop-zone { transition: border-color 0.2s, background 0.2s; }
+
+/* Transaction card left border accent */
+.transacao-card {
+    border-left-width: 4px;
+    border-left-color: #fa5252;
+}
+.transacao-card.confirmed,
+.transacao-card.opacity-60 {
+    border-left-color: #40c057;
+}
+
+/* Toast fixed position */
+.toast-alert {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    min-width: 300px;
+}
