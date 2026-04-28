@@ -304,8 +304,8 @@
                     <option value="">Selecione</option>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold mb-1">Categoria <span class="text-red-500">*</span></label>
+            <div class="tpl-categoria-wrapper">
+                <label class="block text-xs font-semibold mb-1">Categoria <span class="tpl-cat-required text-red-500">*</span></label>
                 <select class="tpl-categoria w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]" required>
                     <option value="">Selecione</option>
                 </select>
@@ -518,9 +518,10 @@ async function processarExtrato() {
                 <div class="mb-2 text-xs font-semibold text-blue-700">
                     <i class="fas fa-calendar-alt mr-1"></i>Competência detectada: <strong>${fmtComp(json.competencia)}</strong>
                 </div>
-                <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                <div class="grid grid-cols-4 gap-2 text-center text-sm">
                     <div><div class="font-bold text-gray-800">${json.banco}</div><div class="text-xs text-gray-400">Banco</div></div>
-                    <div><div class="font-bold text-gray-800">${json.total}</div><div class="text-xs text-gray-400">Total transações</div></div>
+                    <div><div class="font-bold text-gray-800">${json.total}</div><div class="text-xs text-gray-400">Total</div></div>
+                    <div><div class="font-bold text-green-600">${json.total_c}</div><div class="text-xs text-gray-400">Créditos</div></div>
                     <div><div class="font-bold text-red-500">${json.total_d}</div><div class="text-xs text-gray-400">Débitos</div></div>
                 </div>`;
             transacoesData = json.transacoes;
@@ -574,9 +575,28 @@ function renderTransacoes(transacoes, bancoApi) {
     }
     list.innerHTML = '';
     transacoes.forEach((t, i) => {
+        const isCredito = t.tipo === 'C';
         const tpl  = document.getElementById('transacao-tpl').content.cloneNode(true);
         const card = tpl.querySelector('.transacao-card');
-        card.dataset.index = i; card.dataset.valor = t.valor;
+        card.dataset.index = i; card.dataset.valor = t.valor; card.dataset.tipo = t.tipo || 'D';
+
+        // Visual: crédito = borda verde, débito = borda vermelha
+        if (isCredito) {
+            card.classList.remove('border-l-red-400');
+            card.classList.add('border-l-green-400');
+            card.querySelector('.tpl-valor').classList.replace('text-red-500', 'text-green-600');
+            // Badge tipo
+            const status = card.querySelector('.tpl-status');
+            status.textContent = 'Crédito';
+            status.className = 'tpl-status text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full';
+            // Categoria opcional para créditos
+            const catWrapper = card.querySelector('.tpl-categoria-wrapper');
+            catWrapper.querySelector('.tpl-cat-required').remove();
+            card.querySelector('.tpl-categoria').removeAttribute('required');
+            // Ocultar botão dividir em créditos
+            card.querySelector('.tpl-split-btn').classList.add('hidden');
+        }
+
         card.querySelector('.tpl-data').textContent = t.data;
         card.querySelector('.tpl-descricao').textContent = t.descricao;
         card.querySelector('.tpl-valor').textContent = 'R$ ' + t.valor;
@@ -715,10 +735,12 @@ async function salvarTodasTransacoes() {
         }
         const bank = card.querySelector('.tpl-banco').value;
         const category = card.querySelector('.tpl-categoria').value;
-        if (!bank || !category) { errors.push(`"${t.descricao}": banco e categoria são obrigatórios`); continue; }
+        const isCredito = (card.dataset.tipo === 'C');
+        if (!bank) { errors.push(`"${t.descricao}": banco é obrigatório`); continue; }
+        if (!isCredito && !category) { errors.push(`"${t.descricao}": categoria é obrigatória`); continue; }
         const fd = new FormData();
         fd.append('competencia',comp); fd.append('date',t.data); fd.append('description',t.descricao);
-        fd.append('value',t.valor); fd.append('type',t.tipo); fd.append('bank',bank);
+        fd.append('value',t.valor); fd.append('type',t.tipo || 'D'); fd.append('bank',bank);
         fd.append('bank_code',card.querySelector('.tpl-bank-code').value);
         fd.append('category',category); fd.append('category_code',card.querySelector('.tpl-category-code').value);
         for (const f of card.querySelector('.tpl-docs').files) fd.append('documents', f);

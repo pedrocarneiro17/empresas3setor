@@ -527,6 +527,7 @@ def client_extrato_processar():
     data      = resp.json()
     all_trans = data.get('transacoes', [])
     debits    = [t for t in all_trans if t.get('tipo') == 'D']
+    credits   = [t for t in all_trans if t.get('tipo') == 'C']
 
     # Detecta competência automaticamente pelas datas das transações
     competencia = _detectar_competencia(all_trans)
@@ -549,8 +550,9 @@ def client_extrato_processar():
         'banco':       data.get('banco', ''),
         'total':       len(all_trans),
         'total_d':     len(debits),
+        'total_c':     len(credits),
         'competencia': competencia,
-        'transacoes':  debits,
+        'transacoes':  all_trans,
     })
 
 
