@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Alterar Senha{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <h4 class="text-lg font-bold flex items-center gap-2 mb-5">
+        <i class="fas fa-lock text-[#3b5bdb]"></i> Alterar Senha
+    </h4>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" action="/client/senha">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Senha atual <span class="text-red-500">*</span></label>
+                    <input type="password" name="atual" required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Nova senha <span class="text-red-500">*</span></label>
+                    <input type="password" name="nova" required minlength="6"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                    <p class="text-xs text-gray-400 mt-1">Mínimo 6 caracteres</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Confirmar nova senha <span class="text-red-500">*</span></label>
+                    <input type="password" name="confirma" required minlength="6"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3b5bdb]">
+                </div>
+            </div>
+            <button type="submit"
+                    class="mt-6 w-full bg-[#3b5bdb] hover:bg-[#3451c7] text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition">
+                <i class="fas fa-save mr-2"></i> Salvar nova senha
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

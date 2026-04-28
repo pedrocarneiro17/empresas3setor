@@ -3,8 +3,9 @@ import io
 import json
 import uuid
 import hashlib
-import sqlite3
 import requests
+import psycopg2
+import psycopg2.extras
 from functools import wraps
 from flask import (
     Flask, render_template, request, redirect,
@@ -15,10 +16,11 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'contajur_secret_dev_only')
 
-BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR  = os.path.join(BASE_DIR, 'uploads')
-DB_PATH     = os.path.join(BASE_DIR, 'contajur.db')
-API_BASE    = os.environ.get('API_BASE', 'https://sistemas-contajur.up.railway.app')
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR   = os.path.join(BASE_DIR, 'uploads')
+API_BASE     = os.environ.get('API_BASE', 'https://sistemas-contajur.up.railway.app')
+_db_url      = os.environ.get('DATABASE_URL', '')
+DATABASE_URL = _db_url.replace('postgres://', 'postgresql://', 1) if _db_url.startswith('postgres://') else _db_url
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -31,85 +33,116 @@ app.jinja_env.filters['fromjson'] = json.loads
 # DATABASE
 # ══════════════════════════════════════════════════════════════
 
+class _DBConn:
+    """Thin wrapper around psycopg2 connection that mimics sqlite3's API."""
+    def __init__(self):
+        self._conn = psycopg2.connect(DATABASE_URL)
+
+    def execute(self, sql, params=()):
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql.replace('?', '%s'), params or ())
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return _DBConn()
 
 
 def init_db():
     conn = get_db()
-    conn.executescript('''
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            id       SERIAL PRIMARY KEY,
             name     TEXT NOT NULL,
             email    TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             role     TEXT DEFAULT 'client'
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS client_options (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            id      SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
-            type    TEXT NOT NULL,   -- 'bank' | 'category'
-            codigo  TEXT,            -- código usado no CSV
-            value   TEXT NOT NULL,   -- nome exibido ao cliente
+            type    TEXT NOT NULL,
+            codigo  TEXT,
+            value   TEXT NOT NULL,
             UNIQUE(user_id, type, value),
             FOREIGN KEY (user_id) REFERENCES users(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             user_id       INTEGER NOT NULL,
-            competencia   TEXT,            -- 'YYYY-MM'
+            competencia   TEXT,
             date          TEXT NOT NULL,
             description   TEXT NOT NULL,
             value         TEXT NOT NULL,
-            type          TEXT NOT NULL,   -- C | D
-            source        TEXT DEFAULT 'manual',  -- 'manual' | 'extrato'
-            bank          TEXT,            -- nome do banco
-            bank_code     TEXT,            -- código do banco (para CSV)
-            category      TEXT,            -- nome da categoria
-            category_code TEXT,            -- código da categoria (para CSV)
+            type          TEXT NOT NULL,
+            source        TEXT DEFAULT 'manual',
+            bank          TEXT,
+            bank_code     TEXT,
+            category      TEXT,
+            category_code TEXT,
             status        TEXT DEFAULT 'confirmed',
-            created_at    TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_at    TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
             FOREIGN KEY (user_id) REFERENCES users(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS transaction_documents (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            id             SERIAL PRIMARY KEY,
             transaction_id INTEGER NOT NULL,
             filename       TEXT NOT NULL,
             stored_name    TEXT NOT NULL,
-            uploaded_at    TEXT DEFAULT CURRENT_TIMESTAMP,
+            uploaded_at    TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
             FOREIGN KEY (transaction_id) REFERENCES transactions(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS reconciliations (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             user_id     INTEGER NOT NULL,
-            competencia TEXT,            -- 'YYYY-MM'
-            date        TEXT DEFAULT CURRENT_TIMESTAMP,
+            competencia TEXT,
+            date        TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
             result_json TEXT,
             csv1_name   TEXT,
             csv2_name   TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS matched_transactions (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id          INTEGER NOT NULL,
-            competencia      TEXT,        -- 'YYYY-MM'
-            date             TEXT,
-            description      TEXT,
-            value            REAL,
+            id                SERIAL PRIMARY KEY,
+            user_id           INTEGER NOT NULL,
+            competencia       TEXT,
+            date              TEXT,
+            description       TEXT,
+            value             REAL,
             reconciliation_id INTEGER,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (reconciliation_id) REFERENCES reconciliations(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS conciliacao_pendente (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             user_id     INTEGER NOT NULL,
             competencia TEXT NOT NULL,
             csv1_name   TEXT,
@@ -117,59 +150,58 @@ def init_db():
             status      TEXT DEFAULT 'aguardando',
             UNIQUE(user_id, competencia),
             FOREIGN KEY (user_id) REFERENCES users(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS month_status (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             user_id     INTEGER NOT NULL,
             competencia TEXT NOT NULL,
             status      TEXT DEFAULT 'aberto',
             closed_at   TEXT,
             UNIQUE(user_id, competencia),
             FOREIGN KEY (user_id) REFERENCES users(id)
-        );
+        )
+    """)
 
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS extrato_hashes (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id     INTEGER NOT NULL,
-            pdf_hash    TEXT NOT NULL,
+            id       SERIAL PRIMARY KEY,
+            user_id  INTEGER NOT NULL,
+            pdf_hash TEXT NOT NULL,
             UNIQUE(user_id, pdf_hash),
             FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-    ''')
+        )
+    """)
 
-    # Migrations — safe no-op if column already exists
+    # Migrations — ADD COLUMN IF NOT EXISTS é idempotente no PostgreSQL
     migrations = [
-        ('transactions',    'competencia   TEXT'),
-        ('transactions',    'bank_code     TEXT'),
-        ('transactions',    'category_code TEXT'),
-        ('client_options',  'codigo        TEXT'),
-        ('reconciliations', 'competencia   TEXT'),
-        ('matched_transactions', 'competencia TEXT'),
+        ('transactions',         'competencia',   'TEXT'),
+        ('transactions',         'bank_code',     'TEXT'),
+        ('transactions',         'category_code', 'TEXT'),
+        ('client_options',       'codigo',        'TEXT'),
+        ('reconciliations',      'competencia',   'TEXT'),
+        ('matched_transactions', 'competencia',   'TEXT'),
     ]
-    for tbl, col_def in migrations:
-        try:
-            conn.execute(f'ALTER TABLE {tbl} ADD COLUMN {col_def}')
-            conn.commit()
-        except sqlite3.OperationalError:
-            pass
+    for tbl, col, typ in migrations:
+        conn.execute(f'ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {typ}')
 
     # Seed admin
     admin_pw = _hash('admin123')
     conn.execute(
-        'INSERT OR IGNORE INTO users (name, email, password, role) VALUES (?,?,?,?)',
+        'INSERT INTO users (name, email, password, role) VALUES (?,?,?,?) ON CONFLICT DO NOTHING',
         ('Administrador', 'admin@contajur.com', admin_pw, 'admin')
     )
 
     # Seed demo client
     client_pw = _hash('cliente123')
     conn.execute(
-        'INSERT OR IGNORE INTO users (name, email, password, role) VALUES (?,?,?,?)',
+        'INSERT INTO users (name, email, password, role) VALUES (?,?,?,?) ON CONFLICT DO NOTHING',
         ('João Silva', 'joao@empresa.com', client_pw, 'client')
     )
     conn.commit()
 
-    # Seed options for demo client — (user_id, type, codigo, value)
     row = conn.execute('SELECT id FROM users WHERE email=?', ('joao@empresa.com',)).fetchone()
     if row:
         uid = row['id']
@@ -190,7 +222,7 @@ def init_db():
         ]
         for o in default_options:
             conn.execute(
-                'INSERT OR IGNORE INTO client_options (user_id, type, codigo, value) VALUES (?,?,?,?)', o
+                'INSERT INTO client_options (user_id, type, codigo, value) VALUES (?,?,?,?) ON CONFLICT DO NOTHING', o
             )
         conn.commit()
 
@@ -308,6 +340,41 @@ def logout():
 # ══════════════════════════════════════════════════════════════
 # CLIENT ROUTES
 # ══════════════════════════════════════════════════════════════
+
+@app.route('/client/senha', methods=['GET', 'POST'])
+@login_required
+def client_senha():
+    if request.method == 'POST':
+        atual    = request.form.get('atual', '').strip()
+        nova     = request.form.get('nova', '').strip()
+        confirma = request.form.get('confirma', '').strip()
+
+        if not atual or not nova or not confirma:
+            flash('Preencha todos os campos.', 'danger')
+            return redirect(url_for('client_senha'))
+        if nova != confirma:
+            flash('A nova senha e a confirmação não coincidem.', 'danger')
+            return redirect(url_for('client_senha'))
+        if len(nova) < 6:
+            flash('A nova senha deve ter pelo menos 6 caracteres.', 'danger')
+            return redirect(url_for('client_senha'))
+
+        uid  = session['user_id']
+        conn = get_db()
+        user = conn.execute('SELECT password FROM users WHERE id=?', (uid,)).fetchone()
+        if user['password'] != _hash(atual):
+            conn.close()
+            flash('Senha atual incorreta.', 'danger')
+            return redirect(url_for('client_senha'))
+
+        conn.execute('UPDATE users SET password=? WHERE id=?', (_hash(nova), uid))
+        conn.commit()
+        conn.close()
+        flash('Senha alterada com sucesso!', 'success')
+        return redirect(url_for('client_senha'))
+
+    return render_template('client/senha.html')
+
 
 @app.route('/client/dashboard')
 @login_required
@@ -444,7 +511,7 @@ def client_extrato_processar():
         return jsonify({'success': False, 'error': resp.json().get('error', 'Erro ao processar extrato')})
 
     # Salva hash para impedir reuso
-    conn.execute('INSERT OR IGNORE INTO extrato_hashes (user_id, pdf_hash) VALUES (?,?)', (uid, pdf_hash))
+    conn.execute('INSERT INTO extrato_hashes (user_id, pdf_hash) VALUES (?,?) ON CONFLICT DO NOTHING', (uid, pdf_hash))
     conn.commit()
 
     data      = resp.json()
@@ -479,7 +546,7 @@ def client_transacao_salvar():
         'INSERT INTO transactions '
         '(user_id, competencia, date, description, value, type, source, '
         ' bank, bank_code, category, category_code) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING id',
         (
             uid,
             request.form.get('competencia', ''),
@@ -494,7 +561,7 @@ def client_transacao_salvar():
             request.form.get('category_code', ''),
         )
     )
-    txn_id = cur.lastrowid
+    txn_id = cur.fetchone()['id']
 
     for doc in request.files.getlist('documents'):
         if doc and doc.filename:
@@ -520,8 +587,8 @@ def client_fechar_mes():
         return jsonify({'success': False, 'error': 'Competência obrigatória'})
     conn = get_db()
     conn.execute(
-        "INSERT INTO month_status (user_id, competencia, status, closed_at) VALUES (?,?,'fechado',datetime('now')) "
-        "ON CONFLICT(user_id, competencia) DO UPDATE SET status='fechado', closed_at=datetime('now')",
+        "INSERT INTO month_status (user_id, competencia, status, closed_at) VALUES (?,?,'fechado',to_char(now(),'YYYY-MM-DD HH24:MI:SS')) "
+        "ON CONFLICT(user_id, competencia) DO UPDATE SET status='fechado', closed_at=to_char(now(),'YYYY-MM-DD HH24:MI:SS')",
         (uid, competencia)
     )
     conn.commit()
@@ -641,7 +708,8 @@ def admin_editar_cliente(client_id):
         conn.commit()
         conn.close()
         return jsonify({'success': True})
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        conn.rollback()
         conn.close()
         return jsonify({'success': False, 'error': 'Este e-mail já está em uso'})
 
@@ -678,7 +746,8 @@ def admin_novo_cliente():
         )
         conn.commit()
         flash(f'Cliente "{name}" criado com sucesso!', 'success')
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        conn.rollback()
         flash('Esse email já está cadastrado.', 'danger')
     finally:
         conn.close()
@@ -767,15 +836,16 @@ def admin_add_option(client_id):
         return jsonify({'success': False, 'error': 'Código não pode ser vazio'})
     conn = get_db()
     try:
-        conn.execute(
-            'INSERT INTO client_options (user_id, type, codigo, value) VALUES (?,?,?,?)',
+        cur = conn.execute(
+            'INSERT INTO client_options (user_id, type, codigo, value) VALUES (?,?,?,?) RETURNING id',
             (client_id, tipo, codigo, valor)
         )
         conn.commit()
-        new_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        new_id = cur.fetchone()['id']
         conn.close()
         return jsonify({'success': True, 'id': new_id, 'value': valor, 'codigo': codigo})
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
+        conn.rollback()
         conn.close()
         return jsonify({'success': False, 'error': 'Opção já existe'})
 
@@ -836,10 +906,10 @@ def admin_processar_boletos(client_id):
 
     data   = resp.json()
     cur    = conn.execute(
-        'INSERT INTO reconciliations (user_id, competencia, result_json, csv2_name) VALUES (?,?,?,?)',
+        'INSERT INTO reconciliations (user_id, competencia, result_json, csv2_name) VALUES (?,?,?,?) RETURNING id',
         (client_id, competencia, json.dumps(data), csv2_name)
     )
-    rec_id = cur.lastrowid
+    rec_id = cur.fetchone()['id']
 
     for match in data.get('correspondencias', []):
         v = match.get('valor', 0)

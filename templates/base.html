@@ -60,6 +60,11 @@
                   {% if request.path == '/client' %}bg-[#3b5bdb] text-white{% else %}text-gray-600 hover:bg-indigo-50 hover:text-[#3b5bdb]{% endif %}">
             <i class="fas fa-receipt w-4 text-center"></i> Lançamentos
         </a>
+        <a href="/client/senha"
+           class="flex items-center gap-2 mx-2 px-3 py-2 rounded text-sm font-medium transition
+                  {% if request.path == '/client/senha' %}bg-[#3b5bdb] text-white{% else %}text-gray-600 hover:bg-indigo-50 hover:text-[#3b5bdb]{% endif %}">
+            <i class="fas fa-lock w-4 text-center"></i> Alterar Senha
+        </a>
         {% endif %}
     </aside>
 
